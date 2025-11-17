@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter_painter/flutter_painter.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
 
 /// Painter that paints the drawables.
 class Painter extends CustomPainter {

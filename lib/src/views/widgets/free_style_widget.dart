@@ -63,6 +63,8 @@ class _FreeStyleWidgetState extends State<_FreeStyleWidget> {
         path: [_globalToLocal(globalPosition)],
         color: settings.color,
         strokeWidth: settings.strokeWidth,
+        // --- Set 'isEditing' ke true untuk render cepat ---
+        isEditing: true,
       );
 
       // Add the drawable to the controller's drawables
@@ -90,24 +92,63 @@ class _FreeStyleWidgetState extends State<_FreeStyleWidget> {
     // If there is no current drawable, ignore user input
     if (drawable == null) return;
 
-    // Add the new point to a copy of the current drawable
-    final newDrawable = drawable.copyWith(
-      path: List<Offset>.from(drawable.path)
-        ..add(_globalToLocal(globalPosition)),
-    );
-    // Replace the current drawable with the copy with the added point
+    // --- PERBAIKAN PERFORMA UTAMA ---
+
+    // 1. Modifikasi path yang ada (SANGAT CEPAT)
+    drawable.path.add(_globalToLocal(globalPosition));
+
+    // 2. Buat salinan 'dangkal' (shallow copy) dari drawable.
+    // Kita harus melakukan type check untuk memanggil copyWith yang benar.
+    final PathDrawable newDrawable;
+    if (drawable is FreeStyleDrawable) {
+      // Panggil copyWith dari FreeStyleDrawable (yang memiliki 'isEditing')
+      newDrawable = drawable.copyWith();
+    } else if (drawable is EraseDrawable) {
+      // Panggil copyWith dari EraseDrawable
+      newDrawable = drawable.copyWith();
+    } else {
+      // Tipe path lain yang tidak diketahui, jangan lakukan apa-apa
+      return;
+    }
+
+    // 3. Ganti drawable di controller.
     PainterController.of(context)
         .replaceDrawable(drawable, newDrawable, newAction: false);
-    // Update the current drawable to be the new copy
+
+    // 4. Update drawable saat ini ke referensi baru
     this.drawable = newDrawable;
+    // --- AKHIR PERBAIKAN PERFORMA ---
   }
 
   /// Callback when the user removes all pointers from the widget.
   void _handleHorizontalDragUp() {
-    DrawableCreatedNotification(drawable).dispatch(context);
+    final drawable = this.drawable;
+    if (drawable == null) return;
+
+    // --- PERBAIKAN ERROR DI SINI ---
+    // Kita harus melakukan type check sebelum memanggil copyWith(isEditing: ...)
+
+    Drawable newDrawable = drawable; // Mulai dengan drawable yang ada
+
+    // Periksa apakah ini FreeStyleDrawable
+    if (drawable is FreeStyleDrawable) {
+      // Jika ya, cast dan panggil copyWith DENGAN isEditing
+      newDrawable = drawable.copyWith(
+        isEditing: false, // Set ke false untuk render kualitas tinggi
+      );
+      // Ganti drawable 'editing' dengan drawable 'final'
+      PainterController.of(context)
+          .replaceDrawable(drawable, newDrawable, newAction: false);
+    }
+    // Jika ini EraseDrawable, kita tidak perlu melakukan apa-apa
+    // karena 'isEditing' tidak ada dan kualitasnya sudah diatur di konstruktornya.
+
+    // --- AKHIR PERBAIKAN ERROR ---
+
+    DrawableCreatedNotification(newDrawable).dispatch(context);
 
     /// Reset the current drawable for the user to draw a new one next time
-    drawable = null;
+    this.drawable = null;
   }
 
   Offset _globalToLocal(Offset globalPosition) {

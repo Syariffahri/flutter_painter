@@ -97,13 +97,18 @@ class ReplaceDrawableAction extends ControllerAction<bool, bool> {
   @protected
   @override
   ControllerAction? merge$(ControllerAction previousAction) {
+    // Periksa jika aksi sebelumnya adalah AddDrawablesAction DAN daftarnya TIDAK KOSONG
     if (previousAction is AddDrawablesAction &&
+        previousAction.drawables.isNotEmpty &&
         previousAction.drawables.last == oldDrawable) {
       return AddDrawablesAction([...previousAction.drawables]
         ..removeLast()
         ..add(newDrawable));
     }
+
+    // Periksa jika aksi sebelumnya adalah InsertDrawablesAction DAN daftarnya TIDAK KOSONG
     if (previousAction is InsertDrawablesAction &&
+        previousAction.drawables.isNotEmpty &&
         previousAction.drawables.last == oldDrawable) {
       return InsertDrawablesAction(
           previousAction.index,
@@ -111,6 +116,7 @@ class ReplaceDrawableAction extends ControllerAction<bool, bool> {
             ..removeLast()
             ..add(newDrawable));
     }
+
     if (previousAction is ReplaceDrawableAction &&
         previousAction.newDrawable == oldDrawable) {
       return ReplaceDrawableAction(previousAction.oldDrawable, newDrawable);

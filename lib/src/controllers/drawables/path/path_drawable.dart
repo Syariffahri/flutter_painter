@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../drawable.dart';
@@ -7,7 +5,9 @@ import '../drawable.dart';
 /// Free-style Drawable (hand scribble).
 abstract class PathDrawable extends Drawable {
   /// List of points representing the path to draw.
-  final List<Offset> path;
+  // --- UBAH: Hapus 'final' agar path bisa di-mutasi ---
+  List<Offset> path;
+  // --- AKHIR PERUBAHAN ---
 
   /// The stroke width the path will be drawn with.
   final double strokeWidth;
@@ -41,19 +41,52 @@ abstract class PathDrawable extends Drawable {
   /// Draws the free-style [path] on the provided [canvas] of size [size].
   @override
   void draw(Canvas canvas, Size size) {
-    // Create a UI path to draw
-    final path = Path();
+    // --- PERUBAHAN UTAMA: IMPLEMENTASI SMOOTHING ---
 
-    // Start path from the first point
-    path.moveTo(this.path[0].dx, this.path[0].dy);
-    path.lineTo(this.path[0].dx, this.path[0].dy);
+    // 1. Dapatkan cat (paint) dari sub-kelas (FreeStyle atau Erase)
+    final paint = this.paint;
 
-    // Draw a line between each point on the free path
-    this.path.sublist(1).forEach((point) {
-      path.lineTo(point.dx, point.dy);
-    });
+    // 2. Buat objek Path baru
+    final uiPath = Path();
 
-    // Draw the path on the canvas
-    canvas.drawPath(path, paint);
+    // 3. Handle kasus-kasus khusus (1 atau 2 titik)
+    if (path.isEmpty) {
+      return; // Tidak ada yang digambar
+    } else if (path.length == 1) {
+      // Jika hanya 1 titik, gambar lingkaran kecil (untuk dot)
+      uiPath.addOval(Rect.fromCircle(center: path[0], radius: strokeWidth / 2));
+    } else if (path.length == 2) {
+      // Jika 2 titik, gambar garis lurus
+      uiPath.moveTo(path[0].dx, path[0].dy);
+      uiPath.lineTo(path[1].dx, path[1].dy);
+    } else {
+      // 4. Implementasi Smoothing (Interpolasi)
+      // Ini adalah algoritma smoothing Catmull-Rom yang disederhanakan (menggunakan midpoint)
+      // untuk menghasilkan kurva yang mulus.
+
+      uiPath.moveTo(path[0].dx, path[0].dy); // Pindah ke titik pertama
+
+      // Iterasi melalui sisa titik untuk membuat kurva
+      for (int i = 1; i < path.length - 1; i++) {
+        final p1 = path[i];
+        final p2 = path[i + 1];
+
+        // Hitung titik tengah antara p1 dan p2 sebagai titik akhir segmen kurva
+        final midPoint = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
+
+        // Gambar kurva Bezier
+        // p1 adalah *titik kontrol* (yang membuat kurva melengkung)
+        // midPoint adalah *titik akhir* dari kurva
+        uiPath.quadraticBezierTo(p1.dx, p1.dy, midPoint.dx, midPoint.dy);
+      }
+
+      // Gambar segmen terakhir (garis lurus) ke titik paling akhir
+      // untuk memastikan goresan selesai di tempat stylus diangkat.
+      uiPath.lineTo(path.last.dx, path.last.dy);
+    }
+
+    // 5. Gambar Path yang sudah di-smooth ke canvas
+    canvas.drawPath(uiPath, paint);
+    // --- AKHIR PERUBAHAN UTAMA ---
   }
 }

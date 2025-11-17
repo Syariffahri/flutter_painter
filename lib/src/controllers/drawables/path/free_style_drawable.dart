@@ -9,6 +9,12 @@ class FreeStyleDrawable extends PathDrawable {
   /// The color the path will be drawn with.
   final Color color;
 
+  /// Whether the drawable is currently being edited.
+  ///
+  /// If `true`, the drawable will be drawn with lower quality for performance.
+  /// If `false`, the drawable will be drawn with higher quality.
+  final bool isEditing;
+
   /// Creates a [FreeStyleDrawable] to draw [path].
   ///
   /// The path will be drawn with the passed [color] and [strokeWidth] if provided.
@@ -17,6 +23,9 @@ class FreeStyleDrawable extends PathDrawable {
     double strokeWidth = 1,
     this.color = Colors.black,
     bool hidden = false,
+    // --- PERBAIKAN: Tambahkan 'isEditing' ke konstruktor ---
+    this.isEditing = false,
+    // --- AKHIR PERBAIKAN ---
   })  :
         // An empty path cannot be drawn, so it is an invalid argument.
         assert(path.isNotEmpty, 'The path cannot be an empty list'),
@@ -33,12 +42,20 @@ class FreeStyleDrawable extends PathDrawable {
     List<Offset>? path,
     Color? color,
     double? strokeWidth,
+    // --- BARU: Tambahkan 'isEditing' ke copyWith ---
+    bool? isEditing,
+    // --- AKHIR PENAMBAHAN ---
   }) {
     return FreeStyleDrawable(
-      path: path ?? this.path,
+      // --- UBAH: Salin path dengan benar ---
+      path: path ?? List.from(this.path),
+      // --- AKHIR PERUBAHAN ---
       color: color ?? this.color,
       strokeWidth: strokeWidth ?? this.strokeWidth,
       hidden: hidden ?? this.hidden,
+      // --- BARU: Salin 'isEditing' ---
+      isEditing: isEditing ?? this.isEditing,
+      // --- AKHIR PENAMBAHAN ---
     );
   }
 
@@ -49,7 +66,11 @@ class FreeStyleDrawable extends PathDrawable {
     ..strokeCap = StrokeCap.round
     ..strokeJoin = StrokeJoin.round
     ..color = color
-    ..strokeWidth = strokeWidth;
+    ..strokeWidth = strokeWidth
+    // --- UBAH: Kualitas render dinamis berdasarkan 'isEditing' ---
+    ..isAntiAlias = !isEditing // Non-aktifkan anti-alias saat mengedit
+    ..filterQuality = isEditing ? FilterQuality.low : FilterQuality.high;
+  // --- AKHIR PERUBAHAN ---
 
   /// Compares two [FreeStyleDrawable]s for equality.
   // @override

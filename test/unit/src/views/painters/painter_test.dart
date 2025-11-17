@@ -1,8 +1,8 @@
 // ignore_for_file: prefer_const_constructors
 import 'package:flutter/material.dart';
-import 'package:flutter_painter/src/controllers/drawables/background/background_drawables.dart';
-import 'package:flutter_painter/src/controllers/drawables/grouped_drawable.dart';
-import 'package:flutter_painter/src/views/painters/painter.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
+import 'package:flutter_painter_v2/src/controllers/drawables/grouped_drawable.dart';
+import 'package:flutter_painter_v2/src/views/painters/painter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -194,7 +194,7 @@ class _ArrangeBuilder {
   }
 }
 
-class FakePaint extends Fake implements Paint {}
+class FakePaint extends Fake {}
 
 class MockCanvas extends Mock implements Canvas {}
 

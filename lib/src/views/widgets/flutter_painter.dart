@@ -1,10 +1,18 @@
+// flutter_painter.dart
+
 import 'dart:async';
 import 'dart:math';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_painter_v2/flutter_painter.dart';
+
+import 'package:vector_math/vector_math_64.dart' hide Colors;
+
+import '../../controllers/drawables/grouped_drawable.dart';
 import '../../controllers/events/selected_object_drawable_removed_event.dart';
 import '../../controllers/helpers/renderer_check/renderer_check.dart';
 import '../../controllers/drawables/drawable.dart';
@@ -171,7 +179,8 @@ class _FlutterPainterWidget extends StatelessWidget {
                     child: _ShapeWidget(
                       // controller: controller,
                       child: _ObjectWidget(
-                        // controller: controller,
+                        // interactionEnabled: controller.freeStyleSettings.mode !=
+                        //     FreeStyleMode.erase,
                         interactionEnabled: true,
                         child: CustomPaint(
                           painter: Painter(

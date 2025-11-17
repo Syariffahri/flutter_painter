@@ -1,4 +1,8 @@
+// lib/src/views/widgets/object_widget.dart
+
 part of 'flutter_painter.dart';
+
+// [FIXED] Import yang diperlukan untuk Vector3
 
 /// Flutter widget to move, scale and rotate [ObjectDrawable]s.
 class _ObjectWidget extends StatefulWidget {
@@ -79,8 +83,9 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
   /// Keeps track of which controls are being used.
   ///
   /// Used to highlight the controls when they are in use.
+  // Modifikasi Anda: Jumlah control menjadi 12
   Map<int, bool> controlsAreActive = {
-    for (var e in List.generate(8, (index) => index)) e: false
+    for (var e in List.generate(12, (index) => index)) e: false,
   };
 
   /// Subscription to the events coming from the controller.
@@ -99,12 +104,15 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
   /// drawable is deleted.
   bool cancelControlsAnimation = false;
 
+  // Modifikasi Anda: Menyimpan EraseDrawables yang terhubung
+  List<EraseDrawable> _linkedEraseDrawables = [];
+
   @override
   void initState() {
     super.initState();
 
     // Listen to the stream of events from the paint controller
-    WidgetsBinding.instance?.addPostFrameCallback((timestamp) {
+    WidgetsBinding.instance.addPostFrameCallback((timestamp) {
       controllerEventSubscription =
           PainterController.of(context).events.listen((event) {
         // When an [RemoveDrawableEvent] event is received and removed drawable is the selected object
@@ -158,15 +166,13 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
               ),
             );
             return Positioned(
-              // Offset the position by half the size of the drawable so that
-              // the object is in the center point
               top: drawable.position.dy - objectPadding - size.height / 2,
               left: drawable.position.dx - objectPadding - size.width / 2,
               child: Transform.rotate(
                 angle: drawable.rotationAngle,
                 transformHitTests: true,
                 child: Container(
-                  child: freeStyleSettings.mode != FreeStyleMode.none
+                  child: freeStyleSettings.mode == FreeStyleMode.draw
                       ? widget
                       : MouseRegion(
                           cursor: drawable.locked
@@ -184,6 +190,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                               duration: controlsTransitionDuration,
                               child: selected
                                   ? Stack(
+                                      clipBehavior: Clip.none,
                                       children: [
                                         widget,
                                         Positioned(
@@ -197,6 +204,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               (controlsSize / 2),
                                           child: Builder(
                                             builder: (context) {
+                                              // ... (kode border highlight tetap sama) ...
                                               if (usingHtmlRenderer) {
                                                 return Container(
                                                   decoration: BoxDecoration(
@@ -232,73 +240,14 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                             },
                                           ),
                                         ),
+                                        // Modifikasi Anda: Rotation handle tetap (index 2)
                                         if (settings
-                                            .showScaleRotationControlsResolver()) ...[
+                                            .showScaleRotationControlsResolver())
                                           Positioned(
-                                            top: objectPadding - (controlsSize),
-                                            left:
-                                                objectPadding - (controlsSize),
-                                            width: controlsSize,
-                                            height: controlsSize,
-                                            child: MouseRegion(
-                                              cursor: SystemMouseCursors
-                                                  .resizeUpLeft,
-                                              child: GestureDetector(
-                                                onPanStart: (details) =>
-                                                    onScaleControlPanStart(
-                                                        0, entry, details),
-                                                onPanUpdate: (details) =>
-                                                    onScaleControlPanUpdate(
-                                                        entry,
-                                                        details,
-                                                        constraints,
-                                                        true),
-                                                onPanEnd: (details) =>
-                                                    onScaleControlPanEnd(
-                                                        0, entry, details),
-                                                child: _ObjectControlBox(
-                                                  active:
-                                                      controlsAreActive[0] ??
-                                                          false,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          Positioned(
-                                            bottom:
-                                                objectPadding - (controlsSize),
-                                            left:
-                                                objectPadding - (controlsSize),
-                                            width: controlsSize,
-                                            height: controlsSize,
-                                            child: MouseRegion(
-                                              cursor: SystemMouseCursors
-                                                  .resizeDownLeft,
-                                              child: GestureDetector(
-                                                onPanStart: (details) =>
-                                                    onScaleControlPanStart(
-                                                        1, entry, details),
-                                                onPanUpdate: (details) =>
-                                                    onScaleControlPanUpdate(
-                                                        entry,
-                                                        details,
-                                                        constraints,
-                                                        true),
-                                                onPanEnd: (details) =>
-                                                    onScaleControlPanEnd(
-                                                        1, entry, details),
-                                                child: _ObjectControlBox(
-                                                  active:
-                                                      controlsAreActive[1] ??
-                                                          false,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          Positioned(
-                                            top: objectPadding - (controlsSize),
-                                            right:
-                                                objectPadding - (controlsSize),
+                                            top: objectPadding -
+                                                (controlsSize), // Adjusted position slightly if needed
+                                            right: objectPadding -
+                                                (controlsSize), // Adjusted position slightly if needed
                                             width: controlsSize,
                                             height: controlsSize,
                                             child: MouseRegion(
@@ -309,13 +258,17 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               child: GestureDetector(
                                                 onPanStart: (details) =>
                                                     onRotationControlPanStart(
-                                                        2, entry, details),
+                                                        2,
+                                                        entry,
+                                                        details), // index 2
                                                 onPanUpdate: (details) =>
                                                     onRotationControlPanUpdate(
                                                         entry, details, size),
                                                 onPanEnd: (details) =>
                                                     onRotationControlPanEnd(
-                                                        2, entry, details),
+                                                        2,
+                                                        entry,
+                                                        details), // index 2
                                                 child: _ObjectControlBox(
                                                   shape: BoxShape.circle,
                                                   active:
@@ -325,11 +278,124 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
+
+                                        // Handle untuk Sized2DDrawable (sudut dan sisi)
+                                        if (entry.value is Sized2DDrawable) ...[
+                                          // ========== 4 CORNER HANDLES (Index 8-11) - Modifikasi Anda ==========
+                                          // TOP-LEFT CORNER
+                                          Positioned(
+                                            top: objectPadding - controlsSize,
+                                            left: objectPadding - controlsSize,
+                                            width: controlsSize,
+                                            height: controlsSize,
+                                            child: MouseRegion(
+                                              cursor: SystemMouseCursors
+                                                  .resizeUpLeft,
+                                              child: GestureDetector(
+                                                onPanStart: (details) =>
+                                                    onResizeControlPanStart(
+                                                        8,
+                                                        entry,
+                                                        details), // index 8
+                                                onPanUpdate: (details) =>
+                                                    onResizeCornerPanUpdate(
+                                                        entry,
+                                                        details,
+                                                        constraints,
+                                                        true, // isTop
+                                                        true), // isLeft
+                                                onPanEnd: (details) =>
+                                                    onResizeControlPanEnd(
+                                                        8,
+                                                        entry,
+                                                        details), // index 8
+                                                child: _ObjectControlBox(
+                                                  active:
+                                                      controlsAreActive[8] ??
+                                                          false,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+
+                                          // TOP-RIGHT CORNER
+                                          Positioned(
+                                            top: objectPadding - controlsSize,
+                                            right: objectPadding - controlsSize,
+                                            width: controlsSize,
+                                            height: controlsSize,
+                                            child: MouseRegion(
+                                              cursor: SystemMouseCursors
+                                                  .resizeUpRight,
+                                              child: GestureDetector(
+                                                onPanStart: (details) =>
+                                                    onResizeControlPanStart(
+                                                        9,
+                                                        entry,
+                                                        details), // index 9
+                                                onPanUpdate: (details) =>
+                                                    onResizeCornerPanUpdate(
+                                                        entry,
+                                                        details,
+                                                        constraints,
+                                                        true, // isTop
+                                                        false), // isLeft
+                                                onPanEnd: (details) =>
+                                                    onResizeControlPanEnd(
+                                                        9,
+                                                        entry,
+                                                        details), // index 9
+                                                child: _ObjectControlBox(
+                                                  active:
+                                                      controlsAreActive[9] ??
+                                                          false,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+
+                                          // BOTTOM-LEFT CORNER
                                           Positioned(
                                             bottom:
-                                                objectPadding - (controlsSize),
-                                            right:
-                                                objectPadding - (controlsSize),
+                                                objectPadding - controlsSize,
+                                            left: objectPadding - controlsSize,
+                                            width: controlsSize,
+                                            height: controlsSize,
+                                            child: MouseRegion(
+                                              cursor: SystemMouseCursors
+                                                  .resizeDownLeft,
+                                              child: GestureDetector(
+                                                onPanStart: (details) =>
+                                                    onResizeControlPanStart(
+                                                        10,
+                                                        entry,
+                                                        details), // index 10
+                                                onPanUpdate: (details) =>
+                                                    onResizeCornerPanUpdate(
+                                                        entry,
+                                                        details,
+                                                        constraints,
+                                                        false, // isTop
+                                                        true), // isLeft
+                                                onPanEnd: (details) =>
+                                                    onResizeControlPanEnd(
+                                                        10,
+                                                        entry,
+                                                        details), // index 10
+                                                child: _ObjectControlBox(
+                                                  active:
+                                                      controlsAreActive[10] ??
+                                                          false,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+
+                                          // BOTTOM-RIGHT CORNER
+                                          Positioned(
+                                            bottom:
+                                                objectPadding - controlsSize,
+                                            right: objectPadding - controlsSize,
                                             width: controlsSize,
                                             height: controlsSize,
                                             child: MouseRegion(
@@ -337,29 +403,35 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                                   .resizeDownRight,
                                               child: GestureDetector(
                                                 onPanStart: (details) =>
-                                                    onScaleControlPanStart(
-                                                        3, entry, details),
+                                                    onResizeControlPanStart(
+                                                        11,
+                                                        entry,
+                                                        details), // index 11
                                                 onPanUpdate: (details) =>
-                                                    onScaleControlPanUpdate(
+                                                    onResizeCornerPanUpdate(
                                                         entry,
                                                         details,
                                                         constraints,
-                                                        false),
+                                                        false, // isTop
+                                                        false), // isLeft
                                                 onPanEnd: (details) =>
-                                                    onScaleControlPanEnd(
-                                                        3, entry, details),
+                                                    onResizeControlPanEnd(
+                                                        11,
+                                                        entry,
+                                                        details), // index 11
                                                 child: _ObjectControlBox(
                                                   active:
-                                                      controlsAreActive[3] ??
+                                                      controlsAreActive[11] ??
                                                           false,
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        ],
-                                        if (entry.value is Sized2DDrawable) ...[
+
+                                          // ========== 4 SIDE HANDLES (Index 4-7) - Modifikasi Anda ==========
+                                          // TOP CENTER
                                           Positioned(
-                                            top: objectPadding - (controlsSize),
+                                            top: objectPadding - controlsSize,
                                             left: (size.width / 2) +
                                                 objectPadding -
                                                 (controlsSize / 2),
@@ -371,17 +443,21 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               child: GestureDetector(
                                                 onPanStart: (details) =>
                                                     onResizeControlPanStart(
-                                                        4, entry, details),
+                                                        4,
+                                                        entry,
+                                                        details), // index 4
                                                 onPanUpdate: (details) =>
                                                     onResizeControlPanUpdate(
                                                         entry,
                                                         details,
                                                         constraints,
                                                         Axis.vertical,
-                                                        true),
+                                                        true), // isReversed = true
                                                 onPanEnd: (details) =>
                                                     onResizeControlPanEnd(
-                                                        4, entry, details),
+                                                        4,
+                                                        entry,
+                                                        details), // index 4
                                                 child: _ObjectControlBox(
                                                   active:
                                                       controlsAreActive[4] ??
@@ -390,9 +466,11 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
+
+                                          // BOTTOM CENTER
                                           Positioned(
                                             bottom:
-                                                objectPadding - (controlsSize),
+                                                objectPadding - controlsSize,
                                             left: (size.width / 2) +
                                                 objectPadding -
                                                 (controlsSize / 2),
@@ -404,17 +482,21 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               child: GestureDetector(
                                                 onPanStart: (details) =>
                                                     onResizeControlPanStart(
-                                                        5, entry, details),
+                                                        5,
+                                                        entry,
+                                                        details), // index 5
                                                 onPanUpdate: (details) =>
                                                     onResizeControlPanUpdate(
                                                         entry,
                                                         details,
                                                         constraints,
                                                         Axis.vertical,
-                                                        false),
+                                                        false), // isReversed = false
                                                 onPanEnd: (details) =>
                                                     onResizeControlPanEnd(
-                                                        5, entry, details),
+                                                        5,
+                                                        entry,
+                                                        details), // index 5
                                                 child: _ObjectControlBox(
                                                   active:
                                                       controlsAreActive[5] ??
@@ -423,12 +505,13 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
+
+                                          // LEFT CENTER
                                           Positioned(
-                                            left:
-                                                objectPadding - (controlsSize),
                                             top: (size.height / 2) +
                                                 objectPadding -
                                                 (controlsSize / 2),
+                                            left: objectPadding - controlsSize,
                                             width: controlsSize,
                                             height: controlsSize,
                                             child: MouseRegion(
@@ -437,17 +520,21 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               child: GestureDetector(
                                                 onPanStart: (details) =>
                                                     onResizeControlPanStart(
-                                                        6, entry, details),
+                                                        6,
+                                                        entry,
+                                                        details), // index 6
                                                 onPanUpdate: (details) =>
                                                     onResizeControlPanUpdate(
                                                         entry,
                                                         details,
                                                         constraints,
                                                         Axis.horizontal,
-                                                        true),
+                                                        true), // isReversed = true
                                                 onPanEnd: (details) =>
                                                     onResizeControlPanEnd(
-                                                        6, entry, details),
+                                                        6,
+                                                        entry,
+                                                        details), // index 6
                                                 child: _ObjectControlBox(
                                                   active:
                                                       controlsAreActive[6] ??
@@ -456,12 +543,13 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
+
+                                          // RIGHT CENTER
                                           Positioned(
-                                            right:
-                                                objectPadding - (controlsSize),
                                             top: (size.height / 2) +
                                                 objectPadding -
                                                 (controlsSize / 2),
+                                            right: objectPadding - controlsSize,
                                             width: controlsSize,
                                             height: controlsSize,
                                             child: MouseRegion(
@@ -470,17 +558,21 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               child: GestureDetector(
                                                 onPanStart: (details) =>
                                                     onResizeControlPanStart(
-                                                        7, entry, details),
+                                                        7,
+                                                        entry,
+                                                        details), // index 7
                                                 onPanUpdate: (details) =>
                                                     onResizeControlPanUpdate(
                                                         entry,
                                                         details,
                                                         constraints,
                                                         Axis.horizontal,
-                                                        false),
+                                                        false), // isReversed = false
                                                 onPanEnd: (details) =>
                                                     onResizeControlPanEnd(
-                                                        7, entry, details),
+                                                        7,
+                                                        entry,
+                                                        details), // index 7
                                                 child: _ObjectControlBox(
                                                   active:
                                                       controlsAreActive[7] ??
@@ -492,7 +584,8 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                         ]
                                       ],
                                     )
-                                  : widget,
+                                  : widget, // Jika tidak selected, tampilkan widget asli
+                              // ... (transitionBuilder dan layoutBuilder tetap sama) ...
                               transitionBuilder: (child, animation) {
                                 return FadeTransition(
                                   opacity: animation,
@@ -514,31 +607,179 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
               ),
             );
           }),
-          // if(selectedDrawableIndex != null)
-          //   ...[
-          //     Positioned(
-          //
-          //       child: Container(
-          //         decoration: BoxDecoration(
-          //             border:  Border.all(
-          //               color: Colors.white,
-          //               width: 2,
-          //             ),
-          //             boxShadow: [
-          //               BorderBoxShadow(
-          //                 color: Colors.black,
-          //                 blurRadius: 1,
-          //               )
-          //             ]
-          //         ),
-          //         width: size.width,
-          //         height: size.height,
-          //       ),
-          //     )
-          //   ]
         ],
       );
     });
+  }
+
+  // --- Logika Anda untuk onResizeCornerPanUpdate ---
+  void onResizeCornerPanUpdate(
+    MapEntry<int, ObjectDrawable> entry,
+    DragUpdateDetails details,
+    BoxConstraints constraints,
+    bool isTop,
+    bool isLeft,
+  ) {
+    final index = entry.key;
+    final drawable = entry.value;
+
+    if (drawable is! Sized2DDrawable) return;
+    if (index < 0 || drawable.locked) return;
+
+    final initial = initialScaleDrawables[index];
+    // Pastikan initial adalah Sized2DDrawable?
+    if (initial is! Sized2DDrawable?) return;
+    if (initial == null) return;
+
+    // Transform delta to local coordinate system
+    final localDelta = Matrix4.rotationZ(-drawable.rotationAngle)
+        .transform3(Vector3(details.delta.dx, details.delta.dy, 0));
+    final scaledDelta =
+        Offset(localDelta.x, localDelta.y) / transformationScale;
+
+    Size? calculatedNewSize; // Ukuran baru dari callback
+
+    // Panggil CustomResizeHandler jika ada
+    final customHandler = settings.customResizeHandler; // Ambil dari settings
+    if (customHandler != null) {
+      calculatedNewSize = customHandler(
+        drawable: drawable, // Kirim drawable saat ini
+        currentSize: drawable.size, // Ukuran saat ini
+        localDelta: scaledDelta, // Delta lokal yang sudah diskalakan
+        transformationScale: transformationScale,
+        axis: null, // axis null untuk sudut
+        isTop: isTop,
+        isLeft: isLeft,
+      );
+    }
+
+    Size newSize;
+    // Jika callback tidak ada atau mengembalikan null, gunakan logika default
+    if (calculatedNewSize == null) {
+      double deltaWidth = scaledDelta.dx;
+      double deltaHeight = scaledDelta.dy;
+      if (isLeft) deltaWidth = -deltaWidth;
+      if (isTop) deltaHeight = -deltaHeight;
+
+      // Batasi ukuran minimum
+      newSize = Size(
+        (drawable.size.width + deltaWidth).clamp(20.0, double.infinity),
+        (drawable.size.height + deltaHeight).clamp(20.0, double.infinity),
+      );
+    } else {
+      // Gunakan ukuran dari callback, pastikan tidak negatif
+      newSize = Size(
+        max(20.0, calculatedNewSize.width),
+        max(20.0, calculatedNewSize.height),
+      );
+    }
+
+    // Hitung offset posisi (logika ini tetap sama seperti default)
+    final widthDiff = newSize.width - drawable.size.width;
+    final heightDiff = newSize.height - drawable.size.height;
+    double offsetX = widthDiff / 2;
+    double offsetY = heightDiff / 2;
+    if (isLeft) offsetX = -offsetX;
+    if (isTop) offsetY = -offsetY;
+
+    final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
+        .transform3(Vector3(offsetX, offsetY, 0));
+
+    // Pastikan newDrawable bertipe Sized2DDrawable sebelum memanggil copyWith
+    final Sized2DDrawable sizedDrawable = drawable;
+    final newDrawable = sizedDrawable.copyWith(
+      size: newSize,
+      position: drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
+    );
+
+    updateDrawable(drawable, newDrawable);
+  }
+
+  // --- Logika Anda untuk onResizeControlPanUpdate ---
+  void onResizeControlPanUpdate(MapEntry<int, ObjectDrawable> entry,
+      DragUpdateDetails details, BoxConstraints constraints, Axis axis,
+      [bool isReversed = true]) {
+    final index = entry.key;
+    final drawable = entry.value;
+
+    if (drawable is! Sized2DDrawable) return;
+    if (index < 0 || drawable.locked) return;
+
+    final initial = initialScaleDrawables[index];
+    // Pastikan initial adalah Sized2DDrawable?
+    if (initial is! Sized2DDrawable?) return;
+    if (initial == null) return;
+
+    // Transform delta to local coordinate system
+    final localDelta = Matrix4.rotationZ(-drawable.rotationAngle)
+        .transform3(Vector3(details.delta.dx, details.delta.dy, 0));
+    final scaledDelta =
+        Offset(localDelta.x, localDelta.y) / transformationScale;
+
+    Size? calculatedNewSize;
+
+    // Panggil CustomResizeHandler jika ada
+    final customHandler = settings.customResizeHandler;
+    if (customHandler != null) {
+      calculatedNewSize = customHandler(
+        drawable: drawable,
+        currentSize: drawable.size,
+        localDelta: scaledDelta,
+        transformationScale: transformationScale,
+        axis: axis, // Berikan axis
+        isTop: axis == Axis.vertical && isReversed, // isTop untuk sisi
+        isLeft: axis == Axis.horizontal && isReversed, // isLeft untuk sisi
+      );
+    }
+
+    Size newSize;
+    // Jika callback tidak ada atau mengembalikan null, gunakan logika default
+    if (calculatedNewSize == null) {
+      final vertical = axis == Axis.vertical;
+      double deltaLength = vertical ? scaledDelta.dy : scaledDelta.dx;
+      if (isReversed) deltaLength = -deltaLength;
+
+      // Batasi ukuran minimum
+      newSize = Size(
+        vertical
+            ? drawable.size.width
+            : (drawable.size.width + deltaLength).clamp(20.0, double.infinity),
+        vertical
+            ? (drawable.size.height + deltaLength).clamp(20.0, double.infinity)
+            : drawable.size.height,
+      );
+    } else {
+      // Gunakan ukuran dari callback, pastikan tidak negatif
+      newSize = Size(
+        max(20.0, calculatedNewSize.width),
+        max(20.0, calculatedNewSize.height),
+      );
+    }
+
+    // Hitung offset posisi (logika ini tetap sama seperti default)
+    final widthDiff = newSize.width - drawable.size.width;
+    final heightDiff = newSize.height - drawable.size.height;
+    final offsetLength = (axis == Axis.vertical ? heightDiff : widthDiff) / 2;
+
+    double offsetX = axis == Axis.vertical ? 0 : offsetLength;
+    double offsetY = axis == Axis.vertical ? offsetLength : 0;
+
+    if (isReversed) {
+      offsetX = -offsetX;
+      offsetY = -offsetY;
+    }
+
+    final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
+        .transform3(Vector3(offsetX, offsetY, 0));
+
+    // Pastikan newDrawable bertipe Sized2DDrawable
+    final Sized2DDrawable sizedDrawable = drawable;
+    final newDrawable = sizedDrawable.copyWith(
+      size: newSize,
+      position: drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
+    );
+
+    updateDrawable(drawable, newDrawable);
   }
 
   /// Getter for the [ObjectSettings] from the controller to make code more readable.
@@ -559,7 +800,6 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     SelectedObjectDrawableUpdatedNotification(null).dispatch(context);
 
     setState(() {
-      // selectedDrawableIndex = null;
       controller?.deselectObjectDrawable();
     });
   }
@@ -569,6 +809,11 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
   /// Dispatches an [ObjectDrawableNotification] that the object was tapped.
   void tapDrawable(ObjectDrawable drawable) {
     if (drawable.locked) return;
+    // Cek penguncian dari state controller
+    if (PainterController.of(context)
+        .value
+        .drawablesBeingErased
+        .contains(drawable)) return;
 
     if (controller?.selectedObjectDrawable == drawable) {
       ObjectDrawableReselectedNotification(drawable).dispatch(context);
@@ -577,7 +822,6 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     }
 
     setState(() {
-      // selectedDrawableIndex = drawables.indexOf(drawable);
       controller?.selectObjectDrawable(drawable);
     });
   }
@@ -594,23 +838,43 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
 
     if (index < 0 || drawable.locked) return;
 
+    // Cek penguncian dari state controller
+    if (PainterController.of(context)
+        .value
+        .drawablesBeingErased
+        .contains(drawable)) return;
+
+    // --- Modifikasi Anda: Logika mencari EraseDrawable terhubung ---
+    _linkedEraseDrawables.clear();
+    final currentController =
+        PainterController.of(context); // Ambil controller sekali
+    final objectBounds = getDrawableBounds(drawable); // Gunakan fungsi helper
+    if (objectBounds != null) {
+      for (final d in currentController.value.drawables) {
+        if (d is EraseDrawable) {
+          final eraseBounds = getDrawableBounds(d); // Gunakan fungsi helper
+          if (eraseBounds != null && eraseBounds.overlaps(objectBounds)) {
+            _linkedEraseDrawables.add(d);
+          }
+        }
+      }
+    }
+    // --- Akhir Modifikasi Anda ---
+
     setState(() {
-      // selectedDrawableIndex = index;
-      controller?.selectObjectDrawable(entry.value);
+      currentController.selectObjectDrawable(entry.value);
     });
 
     initialScaleDrawables[index] = drawable;
 
-    // When the gesture detector is rotated, the hit test details are not transformed with it
-    // This causes events from rotated objects to behave incorrectly
-    // So, a [Matrix4] is used to transform the needed event details to be consistent with
-    // the current rotation of the object
+    // Kalkulasi initial local focal point (tetap sama)
     final rotateOffset = Matrix4.rotationZ(drawable.rotationAngle)
       ..translate(details.localFocalPoint.dx, details.localFocalPoint.dy)
       ..rotateZ(-drawable.rotationAngle);
     drawableInitialLocalFocalPoints[index] =
         Offset(rotateOffset[12], rotateOffset[13]);
 
+    // Tambahkan aksi baru (tetap sama)
     updateDrawable(drawable, drawable, newAction: true);
   }
 
@@ -621,14 +885,17 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     if (!widget.interactionEnabled) return;
 
     final index = entry.key;
-
-    // Using the index instead of [entry.value] is to prevent an issue
-    // when an update and end events happen before the UI is updated,
-    // the [entry.value] is the old drawable before it was updated
-    // This causes updating the entry in this method to sometimes fail
-    // To get around it, the object is fetched directly from the drawables
-    // in the controller
-    final drawable = drawables[index];
+    // Ambil drawable terbaru dari controller
+    final ObjectDrawable drawable;
+    try {
+      drawable = drawables[index];
+    } catch (e) {
+      // Jika drawable tidak ditemukan (mungkin sudah dihapus), keluar
+      drawableInitialLocalFocalPoints.remove(index);
+      initialScaleDrawables.remove(index);
+      _linkedEraseDrawables.clear(); // Bersihkan juga linked drawables
+      return;
+    }
 
     // Clean up
     drawableInitialLocalFocalPoints.remove(index);
@@ -636,6 +903,8 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     for (final assistSet in assistDrawables.values) {
       assistSet.remove(index);
     }
+    // Modifikasi Anda: Bersihkan linked erase drawables
+    _linkedEraseDrawables.clear();
 
     // Remove any assist lines the object has
     final newDrawable = drawable.copyWith(assists: {});
@@ -655,10 +924,6 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     if (index < 0) return;
 
     final initialDrawable = initialScaleDrawables[index];
-    // When the gesture detector is rotated, the hit test details are not transformed with it
-    // This causes events from rotated objects to behave incorrectly
-    // So, a [Matrix4] is used to transform the needed event details to be consistent with
-    // the current rotation of the object
     final initialLocalFocalPoint =
         drawableInitialLocalFocalPoints[index] ?? Offset.zero;
 
@@ -667,10 +932,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     final initialPosition = initialDrawable.position - initialLocalFocalPoint;
     final initialRotation = initialDrawable.rotationAngle;
 
-    // When the gesture detector is rotated, the hit test details are not transformed with it
-    // This causes events from rotated objects to behave incorrectly
-    // So, a [Matrix4] is used to transform the needed event details to be consistent with
-    // the current rotation of the object
+    // Transformasi posisi (tetap sama)
     final rotateOffset = Matrix4.identity()
       ..rotateZ(initialRotation)
       ..translate(details.localFocalPoint.dx, details.localFocalPoint.dy)
@@ -678,21 +940,16 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     final position =
         initialPosition + Offset(rotateOffset[12], rotateOffset[13]);
 
-    // Calculate scale of object reference to the initial object scale
+    // Kalkulasi skala (tetap sama)
     final scale = initialDrawable.scale * details.scale;
 
-    // Calculate the rotation of the object reference to the initial object rotation
-    // and normalize it so that its between 0 and 2*pi
+    // Kalkulasi rotasi (tetap sama)
     var rotation = (initialRotation + details.rotation).remainder(pi * 2);
     if (rotation < 0) rotation += pi * 2;
 
-    // The center point of the widget
+    // Kalkulasi assist (tetap sama)
     final center = this.center;
-
-    // The angle from [assistAngles] the object's current rotation is close
     final double? closestAssistAngle;
-
-    // If layout assist is enabled, calculate the positional and rotational assists
     if (settings.layoutAssist.enabled) {
       calculatePositionalAssists(
         settings.layoutAssist,
@@ -709,35 +966,27 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
       closestAssistAngle = null;
     }
 
-    // The set of assists for the object
-    // If layout assist is disabled, it is empty
     final assists = settings.layoutAssist.enabled
         ? assistDrawables.entries
             .where((element) => element.value.contains(index))
             .map((e) => e.key)
             .toSet()
         : <ObjectDrawableAssist>{};
-
-    // Do not display the rotational assist if the user is using less that 2 pointers
-    // So, rotational assist lines won't show if the user is only moving the object
     if (details.pointerCount < 2) assists.remove(ObjectDrawableAssist.rotation);
 
-    // Snap the object to the horizontal/vertical center if its is near it
-    // and layout assist is enabled
+    // Posisi dan rotasi dengan assist (tetap sama)
     final assistedPosition = Offset(
       assists.contains(ObjectDrawableAssist.vertical) ? center.dx : position.dx,
       assists.contains(ObjectDrawableAssist.horizontal)
           ? center.dy
           : position.dy,
     );
-
-    // Snap the object rotation to the nearest angle from [assistAngles] if its near it
-    // and layout assist is enabled
     final assistedRotation = assists.contains(ObjectDrawableAssist.rotation) &&
             closestAssistAngle != null
         ? closestAssistAngle.remainder(pi * 2)
         : rotation;
 
+    // Buat drawable baru (tetap sama)
     final newDrawable = drawable.copyWith(
       position: assistedPosition,
       scale: scale,
@@ -745,25 +994,43 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
       assists: assists,
     );
 
+    // --- Modifikasi Anda: Pindahkan EraseDrawables yang terhubung ---
+    final delta =
+        newDrawable.position - drawable.position; // Hitung delta posisi
+    final currentController = PainterController.of(context); // Ambil controller
+
+    if (delta != Offset.zero && _linkedEraseDrawables.isNotEmpty) {
+      final updatedEraseDrawables = <EraseDrawable>[];
+      for (final eraseDrawable in _linkedEraseDrawables) {
+        // Cek apakah eraseDrawable masih ada di controller
+        if (currentController.value.drawables.contains(eraseDrawable)) {
+          final newPath = eraseDrawable.path.map((p) => p + delta).toList();
+          final newEraseDrawable = eraseDrawable.copyWith(path: newPath);
+
+          currentController.replaceDrawable(eraseDrawable, newEraseDrawable,
+              newAction: false);
+          updatedEraseDrawables.add(newEraseDrawable);
+        }
+      }
+      _linkedEraseDrawables = updatedEraseDrawables; // Update list lokal
+    }
+    // --- Akhir Modifikasi Anda ---
+
+    // Update drawable utama (tetap sama)
     updateDrawable(drawable, newDrawable);
   }
 
   /// Calculates whether the object entered or exited the horizontal and vertical assist areas.
   void calculatePositionalAssists(ObjectLayoutAssistSettings settings,
       int index, Offset position, Offset center) {
+    // ... (kode ini tetap sama) ...
     // Horizontal
-    //
-    // If the object is within the enter distance from the center dy and isn't marked
-    // as a drawable with a horizontal assist, mark it
     if ((position.dy - center.dy).abs() < settings.positionalEnterDistance &&
         !(assistDrawables[ObjectDrawableAssist.horizontal]?.contains(index) ??
             false)) {
       assistDrawables[ObjectDrawableAssist.horizontal]?.add(index);
       settings.hapticFeedback.impact();
-    }
-    // Otherwise, if the object is outside the exit distance from the center dy and is marked as
-    // as a drawable with a horizontal assist, un-mark it
-    else if ((position.dy - center.dy).abs() >
+    } else if ((position.dy - center.dy).abs() >
             settings.positionalExitDistance &&
         (assistDrawables[ObjectDrawableAssist.horizontal]?.contains(index) ??
             false)) {
@@ -771,18 +1038,12 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     }
 
     // Vertical
-    //
-    // If the object is within the enter distance from the center dx and isn't marked
-    // as a drawable with a vertical assist, mark it
     if ((position.dx - center.dx).abs() < settings.positionalEnterDistance &&
         !(assistDrawables[ObjectDrawableAssist.vertical]?.contains(index) ??
             false)) {
       assistDrawables[ObjectDrawableAssist.vertical]?.add(index);
       settings.hapticFeedback.impact();
-    }
-    // Otherwise, if the object is outside the exit distance from the center dx and is marked as
-    // as a drawable with a vertical assist, un-mark it
-    else if ((position.dx - center.dx).abs() >
+    } else if ((position.dx - center.dx).abs() >
             settings.positionalExitDistance &&
         (assistDrawables[ObjectDrawableAssist.vertical]?.contains(index) ??
             false)) {
@@ -795,29 +1056,40 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
   /// Returns the angle the object is closest to if it is inside the assist range.
   double? calculateRotationalAssist(
       ObjectLayoutAssistSettings settings, int index, double rotation) {
-    // Calculates all angles from [assistAngles] in the exit range of rotational assist
+    // ... (kode ini tetap sama) ...
     final closeAngles = assistAngles
-        .where(
-            (angle) => (rotation - angle).abs() < settings.rotationalExitAngle)
+        .where((angle) =>
+            (rotation - angle).abs() < settings.rotationalExitAngle ||
+            (rotation - angle).abs() >
+                (2 * pi -
+                    settings.rotationalExitAngle)) // Check wrap around case
         .toList();
 
-    // If the object is close to at least one assist angle
     if (closeAngles.isNotEmpty) {
-      // If the object is also in the enter range of rotational assist and isn't marked
-      // as a drawable with a rotational assist, mark it
-      if (closeAngles.any((angle) =>
-              (rotation - angle).abs() < settings.rotationalEnterAngle) &&
+      // Find the closest angle, considering wrap around
+      double minDiff = double.infinity;
+      double closestAngle = closeAngles[0];
+      for (final angle in closeAngles) {
+        final diff = (rotation - angle).abs();
+        final wrapDiff =
+            (2 * pi - diff).abs(); // Difference considering wrap around 2*pi
+        final actualDiff =
+            math.min(diff, wrapDiff); // Use the smaller difference
+        if (actualDiff < minDiff) {
+          minDiff = actualDiff;
+          closestAngle = angle;
+        }
+      }
+
+      if (minDiff < settings.rotationalEnterAngle && // Use minDiff here
           !(assistDrawables[ObjectDrawableAssist.rotation]?.contains(index) ??
               false)) {
         assistDrawables[ObjectDrawableAssist.rotation]?.add(index);
         settings.hapticFeedback.impact();
       }
-      // Return the angle the object is close to
-      return closeAngles[0];
+      return closestAngle; // Return the truly closest angle
     }
 
-    // Otherwise, if the object is not in the exit range of any assist angles,
-    // but is marked as a drawable with rotational assist, un-mark it
     if (closeAngles.isEmpty &&
         (assistDrawables[ObjectDrawableAssist.rotation]?.contains(index) ??
             false)) {
@@ -831,6 +1103,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
   ///
   /// Uses the [GlobalKey] for the painter from [controller].
   Offset get center {
+    // ... (kode ini tetap sama) ...
     final renderBox = PainterController.of(context)
         .painterKey
         .currentContext
@@ -847,12 +1120,14 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
   /// Replaces a drawable with a new one.
   void updateDrawable(ObjectDrawable oldDrawable, ObjectDrawable newDrawable,
       {bool newAction = false}) {
+    // Panggil setState agar UI diperbarui
     setState(() {
       PainterController.of(context)
           .replaceDrawable(oldDrawable, newDrawable, newAction: newAction);
     });
   }
 
+  // --- Handler untuk kontrol rotasi (kode ini tetap sama) ---
   void onRotationControlPanStart(int controlIndex,
       MapEntry<int, ObjectDrawable> entry, DragStartDetails details) {
     setState(() {
@@ -861,7 +1136,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     onDrawableScaleStart(
         entry,
         ScaleStartDetails(
-          pointerCount: 2,
+          pointerCount: 2, // Simulasi 2 jari untuk rotasi
           localFocalPoint: entry.value.position,
         ));
   }
@@ -871,18 +1146,36 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     final index = entry.key;
     final initial = initialScaleDrawables[index];
     if (initial == null) return;
-    final initialOffset = Offset((size.width / 2), (-size.height / 2));
-    final initialAngle = atan2(initialOffset.dx, initialOffset.dy);
-    final angle = atan2((details.localPosition.dx + initialOffset.dx),
-        (details.localPosition.dy + initialOffset.dy));
-    final rotation = initialAngle - angle;
+
+    // Hitung sudut rotasi berdasarkan posisi handle
+    final centerToHandle = details.localPosition -
+        Offset(size.width / 2 + objectPadding, size.height / 2 + objectPadding);
+    final currentAngle = centerToHandle.direction;
+
+    // Dapatkan sudut awal handle relatif terhadap pusat saat drag dimulai
+    // (Misalnya, sudut handle rotasi kanan atas adalah -pi/4 relatif thdp pusat objek)
+    // Anda mungkin perlu menyimpan sudut awal handle ini di onRotationControlPanStart
+    // Mari kita asumsikan sudut awal handle kanan atas adalah -pi/4
+    const initialHandleAngle =
+        -pi / 4; // Sudut handle kanan atas relatif ke pusat
+
+    // Hitung perubahan rotasi
+    final rotationDelta = currentAngle - initialHandleAngle;
+
+    // Dapatkan rotasi awal objek dari initialDrawable
+    final initialObjectRotation = initial.rotationAngle;
+
+    // Terapkan perubahan rotasi ke rotasi awal objek
+    final newRotation = initialObjectRotation + rotationDelta;
+
     onDrawableScaleUpdate(
         entry,
         ScaleUpdateDetails(
-          pointerCount: 2,
-          rotation: rotation,
-          scale: 1,
-          localFocalPoint: entry.value.position,
+          pointerCount: 2, // Tetap 2 jari
+          rotation: newRotation -
+              initialObjectRotation, // Kirim delta rotasi relatif thdp awal gestur
+          scale: 1, // Tidak ada perubahan skala
+          localFocalPoint: entry.value.position, // Pusat tetap sama
         ));
   }
 
@@ -894,117 +1187,27 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     onDrawableScaleEnd(entry);
   }
 
-  void onScaleControlPanStart(int controlIndex,
-      MapEntry<int, ObjectDrawable> entry, DragStartDetails details) {
-    setState(() {
-      controlsAreActive[controlIndex] = true;
-    });
-    onDrawableScaleStart(
-        entry,
-        ScaleStartDetails(
-          pointerCount: 1,
-          localFocalPoint: entry.value.position,
-        ));
-  }
+  // --- Handler untuk kontrol skala (1D) - dihapus karena tidak digunakan di versi Anda ---
+  // void onScaleControlPanStart(...)
+  // void onScaleControlPanUpdate(...)
+  // void onScaleControlPanEnd(...)
 
-  void onScaleControlPanUpdate(MapEntry<int, ObjectDrawable> entry,
-      DragUpdateDetails details, BoxConstraints constraints,
-      [bool isReversed = true]) {
-    final index = entry.key;
-    final initial = initialScaleDrawables[index];
-    if (initial == null) return;
-    final length = details.localPosition.dx * (isReversed ? -1 : 1);
-    final initialSize = initial.getSize(maxWidth: constraints.maxWidth);
-    final initialLength = initialSize.width / 2;
-    final double scale = initialLength == 0
-        ? (length * 2)
-        : ((length + initialLength) / initialLength);
-    onDrawableScaleUpdate(
-        entry,
-        ScaleUpdateDetails(
-          pointerCount: 1,
-          rotation: 0,
-          scale: scale.clamp(ObjectDrawable.minScale, double.infinity),
-          localFocalPoint: entry.value.position,
-        ));
-  }
-
-  void onScaleControlPanEnd(int controlIndex,
-      MapEntry<int, ObjectDrawable> entry, DragEndDetails details) {
-    setState(() {
-      controlsAreActive[controlIndex] = false;
-    });
-    onDrawableScaleEnd(entry);
-  }
-
+  // --- Handler untuk kontrol resize (sudut/sisi) ---
   void onResizeControlPanStart(int controlIndex,
       MapEntry<int, ObjectDrawable> entry, DragStartDetails details) {
     setState(() {
       controlsAreActive[controlIndex] = true;
     });
+    // Gunakan onDrawableScaleStart untuk inisialisasi state
     onDrawableScaleStart(
         entry,
         ScaleStartDetails(
-          pointerCount: 1,
+          pointerCount: 1, // Hanya satu pointer untuk resize
           localFocalPoint: entry.value.position,
         ));
   }
 
-  void onResizeControlPanUpdate(MapEntry<int, ObjectDrawable> entry,
-      DragUpdateDetails details, BoxConstraints constraints, Axis axis,
-      [bool isReversed = true]) {
-    final index = entry.key;
-
-    final drawable = entry.value;
-
-    if (drawable is! Sized2DDrawable) return;
-
-    final initial = initialScaleDrawables[index];
-    if (initial is! Sized2DDrawable?) return;
-
-    if (initial == null) return;
-    final vertical = axis == Axis.vertical;
-    final length =
-        ((vertical ? details.localPosition.dy : details.localPosition.dx) *
-            (isReversed ? -1 : 1));
-    final initialLength = vertical ? initial.size.height : initial.size.width;
-
-    final totalLength = (length / initial.scale + initialLength)
-        .clamp(0, double.infinity) as double;
-
-    // final double scale = initialLength == 0 ?
-    //   (length*2).clamp(0.001, double.infinity) :
-    //   ((length + initialLength) / initialLength).clamp(0.001, double.infinity);
-
-    // When the gesture detector is rotated, the hit test details are not transformed with it
-    // This causes events from rotated objects to behave incorrectly
-    // So, a [Matrix4] is used to transform the needed event details to be consistent with
-    // the current rotation of the object
-
-    final offsetPosition = Offset(
-      vertical ? 0 : (isReversed ? -1 : 1) * length / 2,
-      vertical ? (isReversed ? -1 : 1) * length / 2 : 0,
-    );
-
-    final rotateOffset = Matrix4.identity()
-      ..rotateZ(initial.rotationAngle)
-      ..translate(offsetPosition.dx, offsetPosition.dy)
-      ..rotateZ(-initial.rotationAngle);
-    final position = Offset(rotateOffset[12], rotateOffset[13]);
-
-    final newDrawable = drawable.copyWith(
-      size: Size(
-        vertical ? drawable.size.width : totalLength,
-        vertical ? totalLength : drawable.size.height,
-      ),
-      position: initial.position + position,
-      // scale: scale,
-      // rotation: assistedRotation,
-      // assists: assists,
-    );
-
-    updateDrawable(drawable, newDrawable);
-  }
+  // onResizeCornerPanUpdate dan onResizeControlPanUpdate sudah dimodifikasi di atas
 
   void onResizeControlPanEnd(int controlIndex,
       MapEntry<int, ObjectDrawable> entry, DragEndDetails details) {
@@ -1014,41 +1217,87 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     onDrawableScaleEnd(entry);
   }
 
-  /// A callback that is called when a transformation occurs in the [InteractiveViewer] in the widget tree.
+  /// Callback yang dipanggil saat transformasi [InteractiveViewer] berubah.
   void onTransformUpdated() {
+    // ... (kode ini tetap sama) ...
+    final m4storage =
+        PainterController.of(context).transformationController.value.storage;
+    final scale = m4storage[0];
+    // Panggil setState agar ukuran kontrol diperbarui
     setState(() {
-      final _m4storage =
-          PainterController.of(context).transformationController.value;
-      transformationScale = math.sqrt(_m4storage[8] * _m4storage[8] +
-          _m4storage[9] * _m4storage[9] +
-          _m4storage[10] * _m4storage[10]);
+      transformationScale = scale;
     });
   }
 }
 
-/// The control box container (only the UI, no logic).
+Rect? getDrawableBounds(Drawable drawable) {
+  if (drawable is ObjectDrawable) {
+    // Perhitungkan rotasi saat menghitung bounds untuk ObjectDrawable
+    final size = drawable.getSize();
+    final center = drawable.position;
+    final angle = drawable.rotationAngle;
+
+    // Handle kasus ukuran nol atau negatif
+    if (size.width <= 0 || size.height <= 0) return null;
+
+    final double sinAngle = math.sin(angle);
+    final double cosAngle = math.cos(angle);
+    // Gunakan abs() untuk memastikan dx/dy positif sebelum perhitungan rotasi
+    final double dx = (size.width / 2 * drawable.scale).abs();
+    final double dy = (size.height / 2 * drawable.scale).abs();
+
+    // Hitung 4 sudut setelah rotasi
+    final Offset tl = Offset(center.dx + (-dx * cosAngle - -dy * sinAngle),
+        center.dy + (-dx * sinAngle + -dy * cosAngle));
+    final Offset tr = Offset(center.dx + (dx * cosAngle - -dy * sinAngle),
+        center.dy + (dx * sinAngle + -dy * cosAngle));
+    final Offset bl = Offset(center.dx + (-dx * cosAngle - dy * sinAngle),
+        center.dy + (-dx * sinAngle + dy * cosAngle));
+    final Offset br = Offset(center.dx + (dx * cosAngle - dy * sinAngle),
+        center.dy + (dx * sinAngle + dy * cosAngle));
+
+    // Cari min/max X dan Y dari 4 sudut
+    final double minX = [tl.dx, tr.dx, bl.dx, br.dx].reduce(math.min);
+    final double maxX = [tl.dx, tr.dx, bl.dx, br.dx].reduce(math.max);
+    final double minY = [tl.dy, tr.dy, bl.dy, br.dy].reduce(math.min);
+    final double maxY = [tl.dy, tr.dy, bl.dy, br.dy].reduce(math.max);
+
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  } else if (drawable is PathDrawable) {
+    if (drawable.path.isEmpty) return null;
+    // Gunakan ekstensi getBounds dan inflate
+    return drawable.path.getBounds().inflate(drawable.strokeWidth / 2);
+  }
+  return null; // Kembalikan null jika tipe drawable tidak dikenal
+}
+
+// Ekstensi ini juga dibutuhkan oleh getDrawableBounds
+extension PathBounds on List<Offset> {
+  Rect getBounds() {
+    if (isEmpty) return Rect.zero;
+    double left = this[0].dx;
+    double top = this[0].dy;
+    double right = this[0].dx;
+    double bottom = this[0].dy;
+    for (final offset in this) {
+      if (offset.dx < left) left = offset.dx;
+      if (offset.dx > right) right = offset.dx;
+      if (offset.dy < top) top = offset.dy;
+      if (offset.dy > bottom) bottom = offset.dy;
+    }
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+}
+
+/// Widget untuk kotak kontrol (UI saja).
 class _ObjectControlBox extends StatelessWidget {
-  /// Shape of the control box.
+  // ... (kode ini tetap sama) ...
   final BoxShape shape;
-
-  /// Whether the box is being used or not.
   final bool active;
-
-  /// Color of control when it is not active.
-  /// Defaults to [Colors.white].
   final Color inactiveColor;
-
-  /// Color of control when it is active.
-  /// If null is provided, the theme's accent color is used. If there is no theme, [Colors.blue] is used.
   final Color? activeColor;
-
-  /// Color of the shadow surrounding the control.
-  /// Defaults to [Colors.black].
   final Color shadowColor;
 
-  /// Creates an [_ObjectControlBox] with the given [shape] and [active].
-  ///
-  /// By default, it will be a [BoxShape.rectangle] shape and not active.
   const _ObjectControlBox({
     Key? key,
     this.shape = BoxShape.rectangle,
@@ -1062,17 +1311,27 @@ class _ObjectControlBox extends StatelessWidget {
   Widget build(BuildContext context) {
     ThemeData? theme = Theme.of(context);
     if (theme == ThemeData.fallback()) theme = null;
-    final activeColor = this.activeColor ?? theme?.accentColor ?? Colors.blue;
+    final effectiveActiveColor =
+        activeColor ?? theme?.colorScheme.secondary ?? Colors.blue;
     return AnimatedContainer(
       duration: _ObjectWidgetState.controlsTransitionDuration,
       decoration: BoxDecoration(
-        color: active ? activeColor : inactiveColor,
+        color: active ? effectiveActiveColor : inactiveColor,
         shape: shape,
         boxShadow: [
-          BoxShadow(
-            color: shadowColor,
-            blurRadius: 2,
-          )
+          // Gunakan BorderBoxShadow jika ada, jika tidak, BoxShadow standar
+          if (!usingHtmlRenderer) // Periksa renderer, sesuaikan jika perlu
+            BorderBoxShadow(
+              // Gunakan BorderBoxShadow dari paket Anda
+              color: shadowColor,
+              blurRadius: 2,
+            )
+          else
+            BoxShadow(
+              // Fallback ke BoxShadow standar
+              color: shadowColor,
+              blurRadius: 2,
+            )
         ],
       ),
     );

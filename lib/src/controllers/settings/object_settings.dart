@@ -1,9 +1,10 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
+import '../../../flutter_painter.dart';
 import '../drawables/sized2ddrawable.dart';
-import 'haptic_feedback_settings.dart';
 
 typedef ObjectEnlargeControlsResolver = bool Function();
 typedef ObjectShowScaleRotationControlsResolver = bool Function();
@@ -43,11 +44,14 @@ class ObjectSettings {
   final ObjectShowScaleRotationControlsResolver
       showScaleRotationControlsResolver;
 
+  final CustomResizeHandler? customResizeHandler;
+
   /// Creates a [TextSettings] with the given [layoutAssist].
   const ObjectSettings({
     this.layoutAssist = const ObjectLayoutAssistSettings(),
-    this.enlargeControlsResolver = _enlargeControls,
-    this.showScaleRotationControlsResolver = _showScaleRotationControls,
+    this.enlargeControlsResolver = enlargeControls,
+    this.showScaleRotationControlsResolver = showScaleRotationControls,
+    this.customResizeHandler,
   });
 
   /// Creates a copy of this but with the given fields replaced with the new values.
@@ -55,6 +59,7 @@ class ObjectSettings {
     ObjectLayoutAssistSettings? layoutAssist,
     ObjectEnlargeControlsResolver? enlargeControlsResolver,
     ObjectShowScaleRotationControlsResolver? showScaleRotationControlsResolver,
+    CustomResizeHandler? customResizeHandler,
   }) {
     return ObjectSettings(
       layoutAssist: layoutAssist ?? this.layoutAssist,
@@ -62,17 +67,18 @@ class ObjectSettings {
           enlargeControlsResolver ?? this.enlargeControlsResolver,
       showScaleRotationControlsResolver: showScaleRotationControlsResolver ??
           this.showScaleRotationControlsResolver,
+      customResizeHandler: customResizeHandler ?? this.customResizeHandler,
     );
   }
 
   /// Default value for [enlargeControlsResolver].
   ///
   /// Returns `true` on mobile devices.
-  static bool _enlargeControls() {
+  static bool enlargeControls() {
     return _mobileTargetPlatforms.contains(defaultTargetPlatform);
   }
 
-  static bool _showScaleRotationControls() {
+  static bool showScaleRotationControls() {
     return !_mobileTargetPlatforms.contains(defaultTargetPlatform);
   }
 }
@@ -156,3 +162,13 @@ class ObjectLayoutAssistSettings {
     );
   }
 }
+
+typedef CustomResizeHandler = Size? Function({
+  required Drawable drawable,
+  required Size currentSize,
+  required Offset localDelta,
+  required double transformationScale,
+  required Axis? axis,
+  required bool isTop,
+  required bool isLeft,
+});

@@ -22,7 +22,9 @@ class EraseDrawable extends PathDrawable {
     double? strokeWidth,
   }) {
     return EraseDrawable(
-      path: path ?? this.path,
+      // --- UBAH: Salin path dengan benar ---
+      path: path ?? List.from(this.path),
+      // --- AKHIR PERUBAHAN ---
       strokeWidth: strokeWidth ?? this.strokeWidth,
       hidden: hidden ?? this.hidden,
     );
@@ -35,7 +37,12 @@ class EraseDrawable extends PathDrawable {
     ..strokeCap = StrokeCap.round
     ..strokeJoin = StrokeJoin.round
     ..blendMode = BlendMode.clear
-    ..strokeWidth = strokeWidth;
+    ..strokeWidth = strokeWidth
+    // --- BARU: Optimasi Kualitas Render untuk Penghapus ---
+    // Penghapus tidak perlu anti-alias berkualitas tinggi
+    ..isAntiAlias = false
+    ..filterQuality = FilterQuality.low;
+  // --- AKHIR PENAMBAHAN ---
 
   /// Compares two [EraseDrawable]s for equality.
   // @override

@@ -1,4 +1,15 @@
+// lib/src/controllers/settings/free_style_settings.dart
+
 import 'package:flutter/material.dart';
+import '../drawables/drawable.dart';
+
+// [MODIFIKASI] Tambahkan parameter 'bool locked' di sini
+typedef GroupCreator = Drawable Function({
+  required List<Drawable> children,
+  required Offset position,
+  required Size size,
+  bool locked, // Tambahkan ini
+});
 
 /// Represents settings used to create and draw free-style drawables.
 @immutable
@@ -12,21 +23,30 @@ class FreeStyleSettings {
   /// The stroke width the path will be drawn with.
   final double strokeWidth;
 
+  // Callback opsional untuk membuat grup
+  final GroupCreator? groupCreator;
+
   /// Creates a [FreeStyleSettings] with the given [color]
   /// and [strokeWidth] and [mode] values.
   const FreeStyleSettings({
     this.mode = FreeStyleMode.none,
     this.color = Colors.black,
     this.strokeWidth = 1,
+    this.groupCreator,
   });
 
   /// Creates a copy of this but with the given fields replaced with the new values.
-  FreeStyleSettings copyWith(
-      {FreeStyleMode? mode, Color? color, double? strokeWidth}) {
+  FreeStyleSettings copyWith({
+    FreeStyleMode? mode,
+    Color? color,
+    double? strokeWidth,
+    GroupCreator? groupCreator,
+  }) {
     return FreeStyleSettings(
       mode: mode ?? this.mode,
       color: color ?? this.color,
       strokeWidth: strokeWidth ?? this.strokeWidth,
+      groupCreator: groupCreator ?? this.groupCreator,
     );
   }
 }
