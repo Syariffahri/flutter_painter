@@ -8,8 +8,6 @@ class _ObjectWidget extends StatefulWidget {
   final Widget child;
 
   /// Whether scaling is enabled or not.
-  ///
-  /// If `false`, objects won't be movable, scalable or rotatable.
   final bool interactionEnabled;
 
   /// Creates a [_ObjectWidget] with the given [controller], [child] widget.
@@ -36,92 +34,52 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     2 * pi
   };
 
-  /// The last controller value in the widget tree.
-  /// Updated by [didChangeDependencies] and used in [dispose].
   PainterController? controller;
-
-  /// Calculates the scale for the [InteractiveViewer] in the widget tree, and scales
   double transformationScale = 1;
 
-  /// Getter for extra amount of padding added around each object to make it easier to interact with.
   double get objectPadding => 25 / transformationScale;
-
-  /// Getter for the duration of fade-in and out animations for the object controls.
   static Duration get controlsTransitionDuration =>
       const Duration(milliseconds: 100);
-
-  /// Getter for the size of the controls of the selected object.
   double get controlsSize =>
       (settings.enlargeControlsResolver() ? 20 : 10) / transformationScale;
-
-  /// Getter for the blur radius of the selected object highlighting.
   double get selectedBlurRadius => 2 / transformationScale;
-
-  /// Getter for the border width of the selected object highlighting.
   double get selectedBorderWidth => 1 / transformationScale;
 
-  /// Keeps track of the initial local focal point when scaling starts.
-  ///
-  /// This is used to offset the movement of the drawable correctly.
   Map<int, Offset> drawableInitialLocalFocalPoints = {};
-
-  /// Keeps track of the initial drawable when scaling starts.
-  ///
-  /// This is used to calculate the new rotation angle and
-  /// degree relative to the initial drawable.
   Map<int, ObjectDrawable> initialScaleDrawables = {};
-
-  /// Keeps track of widgets that have assist lines assigned to them.
-  ///
-  /// This is used to provide haptic feedback when the assist line appears.
   Map<ObjectDrawableAssist, Set<int>> assistDrawables = {
     for (var e in ObjectDrawableAssist.values) e: <int>{}
   };
-
-  /// Keeps track of which controls are being used.
-  ///
-  /// Used to highlight the controls when they are in use.
   Map<int, bool> controlsAreActive = {
     for (var e in List.generate(12, (index) => index)) e: false,
   };
 
-  /// Subscription to the events coming from the controller.
   StreamSubscription<PainterEvent>? controllerEventSubscription;
 
-  /// Getter for the list of [ObjectDrawable]s in the controller
-  /// to make code more readable.
   List<ObjectDrawable> get drawables => PainterController.of(context)
       .value
       .drawables
       .whereType<ObjectDrawable>()
       .toList();
 
-  /// A flag on whether to cancel controls animation or not.
-  /// This is used to cancel the animation after the selected object
-  /// drawable is deleted.
   bool cancelControlsAnimation = false;
 
-  // Menyimpan EraseDrawables yang terhubung
-  List<EraseDrawable> _linkedEraseDrawables = [];
+  // [PERBAIKAN] Menggunakan MAP untuk menyimpan state awal dan akhir eraser
+  // Key: Eraser Original (Saat Start Drag), Value: Eraser Terbaru (Saat Update)
+  final Map<EraseDrawable, EraseDrawable> _linkedErasersMap = {};
 
   @override
   void initState() {
     super.initState();
-
-    // Listen to the stream of events from the paint controller
     WidgetsBinding.instance.addPostFrameCallback((timestamp) {
       controllerEventSubscription =
           PainterController.of(context).events.listen((event) {
-        // When an [RemoveDrawableEvent] event is received and removed drawable is the selected object
-        // cancel the animation.
         if (event is SelectedObjectDrawableRemovedEvent) {
           setState(() {
             cancelControlsAnimation = true;
           });
         }
       });
-
-      // Listen to transformation changes of [InteractiveViewer].
       PainterController.of(context)
           .transformationController
           .addListener(onTransformUpdated);
@@ -136,7 +94,6 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
 
   @override
   void dispose() {
-    // Cancel subscription to events from painter controller
     controllerEventSubscription?.cancel();
     controller?.transformationController.removeListener(onTransformUpdated);
     super.dispose();
@@ -169,7 +126,8 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                 angle: drawable.rotationAngle,
                 transformHitTests: true,
                 child: Container(
-                  child: freeStyleSettings.mode == FreeStyleMode.draw
+                  // Non-aktifkan interaksi shape saat mode DRAW atau ERASE aktif
+                  child: freeStyleSettings.mode != FreeStyleMode.none
                       ? widget
                       : MouseRegion(
                           cursor: drawable.locked
@@ -238,7 +196,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                           ),
                                         ),
 
-                                        // --- ROTATION HANDLE (Index 2) - MUNCUL UNTUK SEMUA ---
+                                        // ROTATION HANDLE (Index 2)
                                         if (settings
                                             .showScaleRotationControlsResolver())
                                           Positioned(
@@ -272,10 +230,9 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                             ),
                                           ),
 
-                                        // --- HANDLES KHUSUS 2D (KOTAK/LINGKARAN) ---
-                                        // Menampilkan: 4 Sudut (Corners) + Atas/Bawah (Top/Bottom)
+                                        // HANDLES UNTUK 2D (KOTAK/LINGKARAN)
                                         if (entry.value is Sized2DDrawable) ...[
-                                          // TOP-LEFT CORNER (Index 8)
+                                          // TOP-LEFT
                                           Positioned(
                                             top: objectPadding - controlsSize,
                                             left: objectPadding - controlsSize,
@@ -293,8 +250,8 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                                         entry,
                                                         details,
                                                         constraints,
-                                                        true, // isTop
-                                                        true), // isLeft
+                                                        true,
+                                                        true),
                                                 onPanEnd: (details) =>
                                                     onResizeControlPanEnd(
                                                         8, entry, details),
@@ -306,8 +263,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
-
-                                          // TOP-RIGHT CORNER (Index 9)
+                                          // TOP-RIGHT
                                           Positioned(
                                             top: objectPadding - controlsSize,
                                             right: objectPadding - controlsSize,
@@ -325,8 +281,8 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                                         entry,
                                                         details,
                                                         constraints,
-                                                        true, // isTop
-                                                        false), // isLeft
+                                                        true,
+                                                        false),
                                                 onPanEnd: (details) =>
                                                     onResizeControlPanEnd(
                                                         9, entry, details),
@@ -338,8 +294,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
-
-                                          // BOTTOM-LEFT CORNER (Index 10)
+                                          // BOTTOM-LEFT
                                           Positioned(
                                             bottom:
                                                 objectPadding - controlsSize,
@@ -358,8 +313,8 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                                         entry,
                                                         details,
                                                         constraints,
-                                                        false, // isTop
-                                                        true), // isLeft
+                                                        false,
+                                                        true),
                                                 onPanEnd: (details) =>
                                                     onResizeControlPanEnd(
                                                         10, entry, details),
@@ -371,8 +326,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
-
-                                          // BOTTOM-RIGHT CORNER (Index 11)
+                                          // BOTTOM-RIGHT
                                           Positioned(
                                             bottom:
                                                 objectPadding - controlsSize,
@@ -391,8 +345,8 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                                         entry,
                                                         details,
                                                         constraints,
-                                                        false, // isTop
-                                                        false), // isLeft
+                                                        false,
+                                                        false),
                                                 onPanEnd: (details) =>
                                                     onResizeControlPanEnd(
                                                         11, entry, details),
@@ -404,8 +358,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
-
-                                          // TOP CENTER (Index 4)
+                                          // TOP CENTER
                                           Positioned(
                                             top: objectPadding - controlsSize,
                                             left: (size.width / 2) +
@@ -438,8 +391,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
-
-                                          // BOTTOM CENTER (Index 5)
+                                          // BOTTOM CENTER
                                           Positioned(
                                             bottom:
                                                 objectPadding - controlsSize,
@@ -475,11 +427,10 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                           ),
                                         ],
 
-                                        // --- HANDLES UNTUK 1D & 2D (KIRI & KANAN) ---
-                                        // Ini muncul untuk Arrow/Line (resize panjang) dan Shape 2D (resize lebar)
+                                        // HANDLES BERSAMA (2D & 1D - KIRI & KANAN)
                                         if (entry.value is Sized2DDrawable ||
                                             entry.value is Sized1DDrawable) ...[
-                                          // LEFT CENTER (Index 6)
+                                          // LEFT CENTER (6)
                                           Positioned(
                                             top: (size.height / 2) +
                                                 objectPadding -
@@ -512,8 +463,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
                                               ),
                                             ),
                                           ),
-
-                                          // RIGHT CENTER (Index 7)
+                                          // RIGHT CENTER (7)
                                           Positioned(
                                             top: (size.height / 2) +
                                                 objectPadding -
@@ -576,250 +526,7 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     });
   }
 
-  /// Updates the corner resize of the drawable.
-  void onResizeCornerPanUpdate(
-    MapEntry<int, ObjectDrawable> entry,
-    DragUpdateDetails details,
-    BoxConstraints constraints,
-    bool isTop,
-    bool isLeft,
-  ) {
-    final index = entry.key;
-    final drawable = entry.value;
-
-    // PERBAIKAN: Izinkan Sized1DDrawable
-    if (drawable is! Sized2DDrawable && drawable is! Sized1DDrawable) return;
-    if (index < 0 || drawable.locked) return;
-
-    final initial = initialScaleDrawables[index];
-    if (initial == null) return;
-
-    // Transform delta ke sistem koordinat lokal
-    final localDelta = Matrix4.rotationZ(-drawable.rotationAngle)
-        .transform3(Vector3(details.delta.dx, details.delta.dy, 0));
-    final scaledDelta =
-        Offset(localDelta.x, localDelta.y) / transformationScale;
-
-    // Kalkulasi custom (jika ada di settings)
-    Size? calculatedNewSize;
-    final customHandler = settings.customResizeHandler;
-    if (customHandler != null) {
-      calculatedNewSize = customHandler(
-        drawable: drawable,
-        currentSize: drawable.getSize(),
-        localDelta: scaledDelta,
-        transformationScale: transformationScale,
-        axis: null,
-        isTop: isTop,
-        isLeft: isLeft,
-      );
-    }
-
-    // --- LOGIKA Sized1DDrawable (Arrow/Line) ---
-    if (drawable is Sized1DDrawable) {
-      double deltaLength = scaledDelta.dx;
-      if (isLeft) deltaLength = -deltaLength;
-
-      double newLength;
-      if (calculatedNewSize != null) {
-        newLength = calculatedNewSize.width;
-      } else {
-        newLength =
-            (drawable.length + deltaLength).clamp(20.0, double.infinity);
-      }
-
-      final lengthDiff = newLength - drawable.length;
-      double offsetX = lengthDiff / 2;
-      if (isLeft) offsetX = -offsetX;
-
-      final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
-          .transform3(Vector3(offsetX, 0, 0));
-
-      final newDrawable = drawable.copyWith(
-        length: newLength,
-        position: drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
-      );
-      updateDrawable(drawable, newDrawable);
-    }
-    // --- LOGIKA Sized2DDrawable (Kotak/Lingkaran) ---
-    else if (drawable is Sized2DDrawable) {
-      Size newSize;
-      if (calculatedNewSize != null) {
-        newSize = calculatedNewSize;
-      } else {
-        double deltaWidth = scaledDelta.dx;
-        double deltaHeight = scaledDelta.dy;
-        if (isLeft) deltaWidth = -deltaWidth;
-        if (isTop) deltaHeight = -deltaHeight;
-
-        newSize = Size(
-          (drawable.size.width + deltaWidth).clamp(20.0, double.infinity),
-          (drawable.size.height + deltaHeight).clamp(20.0, double.infinity),
-        );
-      }
-
-      final widthDiff = newSize.width - drawable.size.width;
-      final heightDiff = newSize.height - drawable.size.height;
-      double offsetX = widthDiff / 2;
-      double offsetY = heightDiff / 2;
-      if (isLeft) offsetX = -offsetX;
-      if (isTop) offsetY = -offsetY;
-
-      final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
-          .transform3(Vector3(offsetX, offsetY, 0));
-
-      final newDrawable = drawable.copyWith(
-        size: newSize,
-        position: drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
-      );
-      updateDrawable(drawable, newDrawable);
-    }
-  }
-
-  /// Updates the side resize (horizontal/vertical) of the drawable.
-  void onResizeControlPanUpdate(MapEntry<int, ObjectDrawable> entry,
-      DragUpdateDetails details, BoxConstraints constraints, Axis axis,
-      [bool isReversed = true]) {
-    final index = entry.key;
-    final drawable = entry.value;
-
-    // PERBAIKAN: Izinkan Sized1DDrawable
-    if (drawable is! Sized2DDrawable && drawable is! Sized1DDrawable) return;
-    if (index < 0 || drawable.locked) return;
-
-    final initial = initialScaleDrawables[index];
-    if (initial == null) return;
-
-    final localDelta = Matrix4.rotationZ(-drawable.rotationAngle)
-        .transform3(Vector3(details.delta.dx, details.delta.dy, 0));
-    final scaledDelta =
-        Offset(localDelta.x, localDelta.y) / transformationScale;
-
-    Size? calculatedNewSize;
-    final customHandler = settings.customResizeHandler;
-    if (customHandler != null) {
-      calculatedNewSize = customHandler(
-        drawable: drawable,
-        currentSize: drawable.getSize(),
-        localDelta: scaledDelta,
-        transformationScale: transformationScale,
-        axis: axis,
-        isTop: axis == Axis.vertical && isReversed,
-        isLeft: axis == Axis.horizontal && isReversed,
-      );
-    }
-
-    // --- LOGIKA Sized1DDrawable (Arrow/Line) ---
-    if (drawable is Sized1DDrawable) {
-      // Hanya proses jika axis Horizontal (Kiri/Kanan)
-      if (axis == Axis.horizontal) {
-        double newLength;
-        if (calculatedNewSize != null) {
-          newLength = calculatedNewSize.width;
-        } else {
-          double deltaLength = scaledDelta.dx;
-          if (isReversed) deltaLength = -deltaLength;
-          newLength =
-              (drawable.length + deltaLength).clamp(20.0, double.infinity);
-        }
-
-        final lengthDiff = newLength - drawable.length;
-        double offsetX = lengthDiff / 2;
-        if (isReversed) offsetX = -offsetX;
-
-        final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
-            .transform3(Vector3(offsetX, 0, 0));
-
-        final newDrawable = drawable.copyWith(
-          length: newLength,
-          position:
-              drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
-        );
-        updateDrawable(drawable, newDrawable);
-      }
-    }
-    // --- LOGIKA Sized2DDrawable (Kotak/Lingkaran) ---
-    else if (drawable is Sized2DDrawable) {
-      Size newSize;
-      final vertical = axis == Axis.vertical;
-
-      if (calculatedNewSize != null) {
-        newSize = calculatedNewSize;
-      } else {
-        double deltaLength = vertical ? scaledDelta.dy : scaledDelta.dx;
-        if (isReversed) deltaLength = -deltaLength;
-
-        newSize = Size(
-          vertical
-              ? drawable.size.width
-              : (drawable.size.width + deltaLength)
-                  .clamp(20.0, double.infinity),
-          vertical
-              ? (drawable.size.height + deltaLength)
-                  .clamp(20.0, double.infinity)
-              : drawable.size.height,
-        );
-      }
-
-      final widthDiff = newSize.width - drawable.size.width;
-      final heightDiff = newSize.height - drawable.size.height;
-      final offsetLength = (vertical ? heightDiff : widthDiff) / 2;
-
-      double offsetX = vertical ? 0 : offsetLength;
-      double offsetY = vertical ? offsetLength : 0;
-
-      if (isReversed) {
-        offsetX = -offsetX;
-        offsetY = -offsetY;
-      }
-
-      final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
-          .transform3(Vector3(offsetX, offsetY, 0));
-
-      final newDrawable = drawable.copyWith(
-        size: newSize,
-        position: drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
-      );
-      updateDrawable(drawable, newDrawable);
-    }
-  }
-
-  /// Getter for the [ObjectSettings] from the controller to make code more readable.
-  ObjectSettings get settings =>
-      PainterController.of(context).value.settings.object;
-
-  /// Getter for the [FreeStyleSettings] from the controller to make code more readable.
-  FreeStyleSettings get freeStyleSettings =>
-      PainterController.of(context).value.settings.freeStyle;
-
-  /// Triggers when the user taps an empty space.
-  void onBackgroundTapped() {
-    SelectedObjectDrawableUpdatedNotification(null).dispatch(context);
-    setState(() {
-      controller?.deselectObjectDrawable();
-    });
-  }
-
-  /// Callback when an object is tapped.
-  void tapDrawable(ObjectDrawable drawable) {
-    if (drawable.locked) return;
-    if (PainterController.of(context)
-        .value
-        .drawablesBeingErased
-        .contains(drawable)) return;
-
-    if (controller?.selectedObjectDrawable == drawable) {
-      ObjectDrawableReselectedNotification(drawable).dispatch(context);
-    } else {
-      SelectedObjectDrawableUpdatedNotification(drawable).dispatch(context);
-    }
-
-    setState(() {
-      controller?.selectObjectDrawable(drawable);
-    });
-  }
-
-  /// Callback when the object drawable starts being moved, scaled and/or rotated.
+  // --- START EVENT (DENGAN MAGNETIC ERASER + MAP SNAPSHOT) ---
   void onDrawableScaleStart(
       MapEntry<int, ObjectDrawable> entry, ScaleStartDetails details) {
     if (!widget.interactionEnabled) return;
@@ -833,15 +540,36 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
         .drawablesBeingErased
         .contains(drawable)) return;
 
-    _linkedEraseDrawables.clear();
+    // [FITUR] Magnetic Eraser: Inisialisasi Map
+    _linkedErasersMap.clear();
     final currentController = PainterController.of(context);
+    final allDrawables = currentController.value.drawables;
+
+    final objectIndex = allDrawables.indexOf(drawable);
     final objectBounds = getDrawableBounds(drawable);
-    if (objectBounds != null) {
-      for (final d in currentController.value.drawables) {
+
+    if (objectBounds != null && objectIndex >= 0) {
+      for (int i = objectIndex + 1; i < allDrawables.length; i++) {
+        final d = allDrawables[i];
         if (d is EraseDrawable) {
           final eraseBounds = getDrawableBounds(d);
           if (eraseBounds != null && eraseBounds.overlaps(objectBounds)) {
-            _linkedEraseDrawables.add(d);
+            bool isAnchoredToStaticObject = false;
+            for (int j = 0; j < i; j++) {
+              final otherDrawable = allDrawables[j];
+              if (otherDrawable != drawable &&
+                  otherDrawable is ObjectDrawable) {
+                final otherBounds = getDrawableBounds(otherDrawable);
+                if (otherBounds != null && eraseBounds.overlaps(otherBounds)) {
+                  isAnchoredToStaticObject = true;
+                  break;
+                }
+              }
+            }
+            if (!isAnchoredToStaticObject) {
+              // Key: Eraser Awal, Value: Eraser Awal (initially same)
+              _linkedErasersMap[d] = d;
+            }
           }
         }
       }
@@ -862,33 +590,28 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
     updateDrawable(drawable, drawable, newAction: true);
   }
 
-  /// Callback when the object drawable finishes movement, scaling and rotation.
   void onDrawableScaleEnd(MapEntry<int, ObjectDrawable> entry) {
     if (!widget.interactionEnabled) return;
 
     final index = entry.key;
-    final ObjectDrawable drawable;
-    try {
-      drawable = drawables[index];
-    } catch (e) {
-      drawableInitialLocalFocalPoints.remove(index);
-      initialScaleDrawables.remove(index);
-      _linkedEraseDrawables.clear();
-      return;
-    }
 
     drawableInitialLocalFocalPoints.remove(index);
     initialScaleDrawables.remove(index);
     for (final assistSet in assistDrawables.values) {
       assistSet.remove(index);
     }
-    _linkedEraseDrawables.clear();
+    _linkedErasersMap.clear();
 
-    final newDrawable = drawable.copyWith(assists: {});
-    updateDrawable(drawable, newDrawable);
+    try {
+      final ObjectDrawable drawable = drawables[index];
+      final newDrawable = drawable.copyWith(assists: {});
+      updateDrawable(drawable, newDrawable);
+    } catch (e) {
+      // Ignored
+    }
   }
 
-  /// Callback when the object drawable is moved, scaled and/or rotated.
+  // --- UPDATE EVENT (MOVE) ---
   void onDrawableScaleUpdate(
       MapEntry<int, ObjectDrawable> entry, ScaleUpdateDetails details) {
     if (!widget.interactionEnabled) return;
@@ -962,27 +685,359 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
       assists: assists,
     );
 
-    final delta = newDrawable.position - drawable.position;
+    // [FITUR] Update Eraser menggunakan Total Delta (Anti-Drift)
+    final totalDelta = newDrawable.position - initialDrawable.position;
     final currentController = PainterController.of(context);
 
-    if (delta != Offset.zero && _linkedEraseDrawables.isNotEmpty) {
-      final updatedEraseDrawables = <EraseDrawable>[];
-      for (final eraseDrawable in _linkedEraseDrawables) {
-        if (currentController.value.drawables.contains(eraseDrawable)) {
-          final newPath = eraseDrawable.path.map((p) => p + delta).toList();
-          final newEraseDrawable = eraseDrawable.copyWith(path: newPath);
-
-          currentController.replaceDrawable(eraseDrawable, newEraseDrawable,
+    if (totalDelta != Offset.zero && _linkedErasersMap.isNotEmpty) {
+      _linkedErasersMap.forEach((initialEraser, currentEraser) {
+        if (currentController.value.drawables.contains(currentEraser)) {
+          final newPath =
+              initialEraser.path.map((p) => p + totalDelta).toList();
+          final newEraseDrawable = initialEraser.copyWith(path: newPath);
+          currentController.replaceDrawable(currentEraser, newEraseDrawable,
               newAction: false);
-          updatedEraseDrawables.add(newEraseDrawable);
+          _linkedErasersMap[initialEraser] = newEraseDrawable;
         }
-      }
-      _linkedEraseDrawables = updatedEraseDrawables;
+      });
     }
 
     updateDrawable(drawable, newDrawable);
   }
 
+  // --- RESIZE SUDUT (CORNER) ---
+  void onResizeCornerPanUpdate(
+    MapEntry<int, ObjectDrawable> entry,
+    DragUpdateDetails details,
+    BoxConstraints constraints,
+    bool isTop,
+    bool isLeft,
+  ) {
+    final index = entry.key;
+    final drawable = entry.value;
+
+    if (drawable is! Sized2DDrawable && drawable is! Sized1DDrawable) return;
+    if (index < 0 || drawable.locked) return;
+
+    final initial = initialScaleDrawables[index];
+    if (initial == null) return;
+
+    final localDelta = Matrix4.rotationZ(-drawable.rotationAngle)
+        .transform3(Vector3(details.delta.dx, details.delta.dy, 0));
+    final scaledDelta =
+        Offset(localDelta.x, localDelta.y) / transformationScale;
+
+    Size? calculatedNewSize;
+    final customHandler = settings.customResizeHandler;
+    if (customHandler != null) {
+      calculatedNewSize = customHandler(
+        drawable: drawable,
+        currentSize: drawable.getSize(),
+        localDelta: scaledDelta,
+        transformationScale: transformationScale,
+        axis: null,
+        isTop: isTop,
+        isLeft: isLeft,
+      );
+    }
+
+    ObjectDrawable? newDrawableResult;
+
+    if (drawable is Sized1DDrawable) {
+      double deltaLength = scaledDelta.dx;
+      if (isLeft) deltaLength = -deltaLength;
+      double newLength;
+      if (calculatedNewSize != null) {
+        newLength = calculatedNewSize.width;
+      } else {
+        newLength =
+            (drawable.length + deltaLength).clamp(20.0, double.infinity);
+      }
+      final lengthDiff = newLength - drawable.length;
+      double offsetX = lengthDiff / 2;
+      if (isLeft) offsetX = -offsetX;
+      final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
+          .transform3(Vector3(offsetX, 0, 0));
+      newDrawableResult = drawable.copyWith(
+        length: newLength,
+        position: drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
+      );
+    } else if (drawable is Sized2DDrawable) {
+      Size newSize;
+      if (calculatedNewSize != null) {
+        newSize = calculatedNewSize;
+      } else {
+        double deltaWidth = scaledDelta.dx;
+        double deltaHeight = scaledDelta.dy;
+        if (isLeft) deltaWidth = -deltaWidth;
+        if (isTop) deltaHeight = -deltaHeight;
+        newSize = Size(
+          (drawable.size.width + deltaWidth).clamp(20.0, double.infinity),
+          (drawable.size.height + deltaHeight).clamp(20.0, double.infinity),
+        );
+      }
+      final widthDiff = newSize.width - drawable.size.width;
+      final heightDiff = newSize.height - drawable.size.height;
+      double offsetX = widthDiff / 2;
+      double offsetY = heightDiff / 2;
+      if (isLeft) offsetX = -offsetX;
+      if (isTop) offsetY = -offsetY;
+      final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
+          .transform3(Vector3(offsetX, offsetY, 0));
+      newDrawableResult = drawable.copyWith(
+        size: newSize,
+        position: drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
+      );
+    }
+
+    if (newDrawableResult != null) {
+      // [FITUR] Update Eraser saat Resize (Hanya geser posisi, tidak scale)
+      // Agar eraser tetap berada di "tengah" relatif terhadap pergeseran pusat objek
+      final currentController = PainterController.of(context);
+
+      // Kita gunakan referensi 'initial' object untuk menghitung total displacement
+      // Tapi karena resize mengubah ukuran, pusatnya bergeser.
+      // Kita hitung delta dari posisi SEKARANG (drawable) ke POSISI BARU (newDrawableResult)
+      final delta = newDrawableResult.position - drawable.position;
+
+      if (delta != Offset.zero && _linkedErasersMap.isNotEmpty) {
+        _linkedErasersMap.forEach((initialEraser, currentEraser) {
+          if (currentController.value.drawables.contains(currentEraser)) {
+            // Tambahkan delta ke path eraser SAAT INI
+            // (Kita tidak pakai initialEraser di sini karena resize itu incremental)
+            final newPath = currentEraser.path.map((p) => p + delta).toList();
+            final newEraseDrawable = currentEraser.copyWith(path: newPath);
+
+            currentController.replaceDrawable(currentEraser, newEraseDrawable,
+                newAction: false);
+            _linkedErasersMap[initialEraser] = newEraseDrawable;
+          }
+        });
+      }
+
+      updateDrawable(drawable, newDrawableResult);
+    }
+  }
+
+  // --- LOGIKA RESIZE SISI (SIDE) ---
+  void onResizeControlPanUpdate(MapEntry<int, ObjectDrawable> entry,
+      DragUpdateDetails details, BoxConstraints constraints, Axis axis,
+      [bool isReversed = true]) {
+    final index = entry.key;
+    final drawable = entry.value;
+
+    if (drawable is! Sized2DDrawable && drawable is! Sized1DDrawable) return;
+    if (index < 0 || drawable.locked) return;
+
+    final initial = initialScaleDrawables[index];
+    if (initial == null) return;
+
+    final localDelta = Matrix4.rotationZ(-drawable.rotationAngle)
+        .transform3(Vector3(details.delta.dx, details.delta.dy, 0));
+    final scaledDelta =
+        Offset(localDelta.x, localDelta.y) / transformationScale;
+
+    Size? calculatedNewSize;
+    final customHandler = settings.customResizeHandler;
+    if (customHandler != null) {
+      calculatedNewSize = customHandler(
+        drawable: drawable,
+        currentSize: drawable.getSize(),
+        localDelta: scaledDelta,
+        transformationScale: transformationScale,
+        axis: axis,
+        isTop: axis == Axis.vertical && isReversed,
+        isLeft: axis == Axis.horizontal && isReversed,
+      );
+    }
+
+    ObjectDrawable? newDrawableResult;
+
+    if (drawable is Sized1DDrawable) {
+      if (axis == Axis.horizontal) {
+        double newLength;
+        if (calculatedNewSize != null) {
+          newLength = calculatedNewSize.width;
+        } else {
+          double deltaLength = scaledDelta.dx;
+          if (isReversed) deltaLength = -deltaLength;
+          newLength =
+              (drawable.length + deltaLength).clamp(20.0, double.infinity);
+        }
+        final lengthDiff = newLength - drawable.length;
+        double offsetX = lengthDiff / 2;
+        if (isReversed) offsetX = -offsetX;
+        final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
+            .transform3(Vector3(offsetX, 0, 0));
+        newDrawableResult = drawable.copyWith(
+          length: newLength,
+          position:
+              drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
+        );
+      }
+    } else if (drawable is Sized2DDrawable) {
+      Size newSize;
+      final vertical = axis == Axis.vertical;
+      if (calculatedNewSize != null) {
+        newSize = calculatedNewSize;
+      } else {
+        double deltaLength = vertical ? scaledDelta.dy : scaledDelta.dx;
+        if (isReversed) deltaLength = -deltaLength;
+        newSize = Size(
+          vertical
+              ? drawable.size.width
+              : (drawable.size.width + deltaLength)
+                  .clamp(20.0, double.infinity),
+          vertical
+              ? (drawable.size.height + deltaLength)
+                  .clamp(20.0, double.infinity)
+              : drawable.size.height,
+        );
+      }
+      final widthDiff = newSize.width - drawable.size.width;
+      final heightDiff = newSize.height - drawable.size.height;
+      final offsetLength = (vertical ? heightDiff : widthDiff) / 2;
+      double offsetX = vertical ? 0 : offsetLength;
+      double offsetY = vertical ? offsetLength : 0;
+      if (isReversed) {
+        offsetX = -offsetX;
+        offsetY = -offsetY;
+      }
+      final rotatedOffset = Matrix4.rotationZ(drawable.rotationAngle)
+          .transform3(Vector3(offsetX, offsetY, 0));
+      newDrawableResult = drawable.copyWith(
+        size: newSize,
+        position: drawable.position + Offset(rotatedOffset.x, rotatedOffset.y),
+      );
+    }
+
+    if (newDrawableResult != null) {
+      // [FITUR] Update Eraser saat Resize (Sama seperti Corner)
+      final delta = newDrawableResult.position - drawable.position;
+      final currentController = PainterController.of(context);
+
+      if (delta != Offset.zero && _linkedErasersMap.isNotEmpty) {
+        _linkedErasersMap.forEach((initialEraser, currentEraser) {
+          if (currentController.value.drawables.contains(currentEraser)) {
+            final newPath = currentEraser.path.map((p) => p + delta).toList();
+            final newEraseDrawable = currentEraser.copyWith(path: newPath);
+            currentController.replaceDrawable(currentEraser, newEraseDrawable,
+                newAction: false);
+            _linkedErasersMap[initialEraser] = newEraseDrawable;
+          }
+        });
+      }
+
+      updateDrawable(drawable, newDrawableResult);
+    }
+  }
+
+  ObjectSettings get settings =>
+      PainterController.of(context).value.settings.object;
+  FreeStyleSettings get freeStyleSettings =>
+      PainterController.of(context).value.settings.freeStyle;
+
+  void onBackgroundTapped() {
+    SelectedObjectDrawableUpdatedNotification(null).dispatch(context);
+    setState(() {
+      controller?.deselectObjectDrawable();
+    });
+  }
+
+  void tapDrawable(ObjectDrawable drawable) {
+    if (drawable.locked) return;
+    if (PainterController.of(context)
+        .value
+        .drawablesBeingErased
+        .contains(drawable)) return;
+
+    if (controller?.selectedObjectDrawable == drawable) {
+      ObjectDrawableReselectedNotification(drawable).dispatch(context);
+    } else {
+      SelectedObjectDrawableUpdatedNotification(drawable).dispatch(context);
+    }
+
+    setState(() {
+      controller?.selectObjectDrawable(drawable);
+    });
+  }
+
+  void onRotationControlPanStart(int controlIndex,
+      MapEntry<int, ObjectDrawable> entry, DragStartDetails details) {
+    setState(() {
+      controlsAreActive[controlIndex] = true;
+    });
+    onDrawableScaleStart(
+        entry,
+        ScaleStartDetails(
+          pointerCount: 2,
+          localFocalPoint: entry.value.position,
+        ));
+  }
+
+  void onRotationControlPanUpdate(MapEntry<int, ObjectDrawable> entry,
+      DragUpdateDetails details, Size size) {
+    final index = entry.key;
+    final initial = initialScaleDrawables[index];
+    if (initial == null) return;
+
+    final centerToHandle = details.localPosition -
+        Offset(size.width / 2 + objectPadding, size.height / 2 + objectPadding);
+    final currentAngle = centerToHandle.direction;
+    const initialHandleAngle = -pi / 4;
+    final rotationDelta = currentAngle - initialHandleAngle;
+    final initialObjectRotation = initial.rotationAngle;
+    final newRotation = initialObjectRotation + rotationDelta;
+
+    onDrawableScaleUpdate(
+        entry,
+        ScaleUpdateDetails(
+          pointerCount: 2,
+          rotation: newRotation - initialObjectRotation,
+          scale: 1,
+          localFocalPoint: entry.value.position,
+        ));
+  }
+
+  void onRotationControlPanEnd(int controlIndex,
+      MapEntry<int, ObjectDrawable> entry, DragEndDetails details) {
+    setState(() {
+      controlsAreActive[controlIndex] = false;
+    });
+    onDrawableScaleEnd(entry);
+  }
+
+  void onResizeControlPanStart(int controlIndex,
+      MapEntry<int, ObjectDrawable> entry, DragStartDetails details) {
+    setState(() {
+      controlsAreActive[controlIndex] = true;
+    });
+    onDrawableScaleStart(
+        entry,
+        ScaleStartDetails(
+          pointerCount: 1,
+          localFocalPoint: entry.value.position,
+        ));
+  }
+
+  void onResizeControlPanEnd(int controlIndex,
+      MapEntry<int, ObjectDrawable> entry, DragEndDetails details) {
+    setState(() {
+      controlsAreActive[controlIndex] = false;
+    });
+    onDrawableScaleEnd(entry);
+  }
+
+  void onTransformUpdated() {
+    final m4storage =
+        PainterController.of(context).transformationController.value.storage;
+    final scale = m4storage[0];
+    setState(() {
+      transformationScale = scale;
+    });
+  }
+
+  // (Sisanya seperti calculatePositionalAssists, calculateRotationalAssist, center, updateDrawable - TETAP SAMA)
   void calculatePositionalAssists(ObjectLayoutAssistSettings settings,
       int index, Offset position, Offset center) {
     if ((position.dy - center.dy).abs() < settings.positionalEnterDistance &&
@@ -1070,82 +1125,9 @@ class _ObjectWidgetState extends State<_ObjectWidget> {
           .replaceDrawable(oldDrawable, newDrawable, newAction: newAction);
     });
   }
-
-  void onRotationControlPanStart(int controlIndex,
-      MapEntry<int, ObjectDrawable> entry, DragStartDetails details) {
-    setState(() {
-      controlsAreActive[controlIndex] = true;
-    });
-    onDrawableScaleStart(
-        entry,
-        ScaleStartDetails(
-          pointerCount: 2,
-          localFocalPoint: entry.value.position,
-        ));
-  }
-
-  void onRotationControlPanUpdate(MapEntry<int, ObjectDrawable> entry,
-      DragUpdateDetails details, Size size) {
-    final index = entry.key;
-    final initial = initialScaleDrawables[index];
-    if (initial == null) return;
-
-    final centerToHandle = details.localPosition -
-        Offset(size.width / 2 + objectPadding, size.height / 2 + objectPadding);
-    final currentAngle = centerToHandle.direction;
-    const initialHandleAngle = -pi / 4;
-    final rotationDelta = currentAngle - initialHandleAngle;
-    final initialObjectRotation = initial.rotationAngle;
-    final newRotation = initialObjectRotation + rotationDelta;
-
-    onDrawableScaleUpdate(
-        entry,
-        ScaleUpdateDetails(
-          pointerCount: 2,
-          rotation: newRotation - initialObjectRotation,
-          scale: 1,
-          localFocalPoint: entry.value.position,
-        ));
-  }
-
-  void onRotationControlPanEnd(int controlIndex,
-      MapEntry<int, ObjectDrawable> entry, DragEndDetails details) {
-    setState(() {
-      controlsAreActive[controlIndex] = false;
-    });
-    onDrawableScaleEnd(entry);
-  }
-
-  void onResizeControlPanStart(int controlIndex,
-      MapEntry<int, ObjectDrawable> entry, DragStartDetails details) {
-    setState(() {
-      controlsAreActive[controlIndex] = true;
-    });
-    onDrawableScaleStart(
-        entry,
-        ScaleStartDetails(
-          pointerCount: 1,
-          localFocalPoint: entry.value.position,
-        ));
-  }
-
-  void onResizeControlPanEnd(int controlIndex,
-      MapEntry<int, ObjectDrawable> entry, DragEndDetails details) {
-    setState(() {
-      controlsAreActive[controlIndex] = false;
-    });
-    onDrawableScaleEnd(entry);
-  }
-
-  void onTransformUpdated() {
-    final m4storage =
-        PainterController.of(context).transformationController.value.storage;
-    final scale = m4storage[0];
-    setState(() {
-      transformationScale = scale;
-    });
-  }
 }
+
+// --- Helper Functions ---
 
 Rect? getDrawableBounds(Drawable drawable) {
   if (drawable is ObjectDrawable) {

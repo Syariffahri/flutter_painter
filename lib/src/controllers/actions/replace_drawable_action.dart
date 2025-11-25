@@ -47,7 +47,7 @@ class ReplaceDrawableAction extends ControllerAction<bool, bool> {
           ? newDrawable is ObjectDrawable
               ? (newDrawable as ObjectDrawable)
               : selectedObject
-          : null,
+          : selectedObject,
     );
     if (isSelectedObject && newDrawable is! ObjectDrawable) {
       controller.deselectObjectDrawable(isRemoved: true);
@@ -80,7 +80,7 @@ class ReplaceDrawableAction extends ControllerAction<bool, bool> {
           ? oldDrawable is ObjectDrawable
               ? (oldDrawable as ObjectDrawable)
               : selectedObject
-          : null,
+          : selectedObject,
     );
     if (isSelectedObject && oldDrawable is! ObjectDrawable) {
       controller.deselectObjectDrawable(isRemoved: true);
